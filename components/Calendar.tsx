@@ -1,0 +1,217 @@
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+
+interface CalendarProps {
+  selectedDate: Date;
+  onDateSelect: (date: Date) => void;
+  onMonthChange: (date: Date) => void;
+  sessionsMap: Map<string, number>;
+}
+
+export default function Calendar({ selectedDate, onDateSelect, onMonthChange, sessionsMap }: CalendarProps) {
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const currentMonth = selectedDate.getMonth();
+  const currentYear = selectedDate.getFullYear();
+
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+  const startingDayOfWeek = firstDayOfMonth.getDay();
+  const daysInMonth = lastDayOfMonth.getDate();
+
+  const handlePrevMonth = () => {
+    const newDate = new Date(currentYear, currentMonth - 1, 1);
+    onMonthChange(newDate);
+  };
+
+  const handleNextMonth = () => {
+    const newDate = new Date(currentYear, currentMonth + 1, 1);
+    onMonthChange(newDate);
+  };
+
+  const handleDatePress = (day: number) => {
+    const newDate = new Date(currentYear, currentMonth, day);
+    onDateSelect(newDate);
+  };
+
+  const isToday = (day: number) => {
+    const today = new Date();
+    return day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+  };
+
+  const isSelected = (day: number) => {
+    return day === selectedDate.getDate() && currentMonth === selectedDate.getMonth() && currentYear === selectedDate.getFullYear();
+  };
+
+  const getDateKey = (day: number) => {
+    const date = new Date(currentYear, currentMonth, day);
+    return date.toISOString().split('T')[0];
+  };
+
+  const hasSessions = (day: number) => {
+    const key = getDateKey(day);
+    return (sessionsMap.get(key) || 0) > 0;
+  };
+
+  const renderCalendarDays = () => {
+    const days = [];
+
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<View key={`empty-${i}`} style={styles.dayCell} />);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isCurrentDay = isToday(day);
+      const isSelectedDay = isSelected(day);
+      const hasSession = hasSessions(day);
+
+      days.push(
+        <TouchableOpacity
+          key={day}
+          style={[
+            styles.dayCell,
+            isSelectedDay && styles.selectedDay,
+            isCurrentDay && !isSelectedDay && styles.todayDay,
+          ]}
+          onPress={() => handleDatePress(day)}
+        >
+          <Text style={[
+            styles.dayText,
+            isSelectedDay && styles.selectedDayText,
+            isCurrentDay && !isSelectedDay && styles.todayDayText,
+          ]}>
+            {day}
+          </Text>
+          {hasSession && (
+            <View style={[
+              styles.sessionDot,
+              isSelectedDay && styles.sessionDotSelected,
+            ]} />
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    return days;
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handlePrevMonth} style={styles.navButton}>
+          <ChevronLeft size={24} color="#ffffff" strokeWidth={2} />
+        </TouchableOpacity>
+
+        <Text style={styles.monthTitle}>
+          {monthNames[currentMonth]} {currentYear}
+        </Text>
+
+        <TouchableOpacity onPress={handleNextMonth} style={styles.navButton}>
+          <ChevronRight size={24} color="#ffffff" strokeWidth={2} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.daysOfWeek}>
+        {dayNames.map((day) => (
+          <View key={day} style={styles.dayNameCell}>
+            <Text style={styles.dayNameText}>{day}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.calendarGrid}>
+        {renderCalendarDays()}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#0b0f1e',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  navButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  daysOfWeek: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  dayNameCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  dayNameText: {
+    fontSize: 12,
+    color: '#5b6f92',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
+    position: 'relative',
+  },
+  selectedDay: {
+    backgroundColor: '#1a8dff',
+    borderRadius: 12,
+  },
+  todayDay: {
+    borderWidth: 2,
+    borderColor: '#1a8dff',
+    borderRadius: 12,
+  },
+  dayText: {
+    fontSize: 15,
+    color: '#c8cfdd',
+    fontWeight: '600',
+  },
+  selectedDayText: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  todayDayText: {
+    color: '#1a8dff',
+    fontWeight: '700',
+  },
+  sessionDot: {
+    position: 'absolute',
+    bottom: 6,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#1a8dff',
+  },
+  sessionDotSelected: {
+    backgroundColor: '#ffffff',
+  },
+});
