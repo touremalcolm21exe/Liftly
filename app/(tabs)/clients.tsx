@@ -1,23 +1,81 @@
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
 import { Search, User, ChevronRight } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+
+interface Client {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  total_sessions: number;
+}
 
 export default function ClientsScreen() {
-  const mockClients = [
-    { id: 1, name: 'Sarah Johnson', sessions: 12 },
-    { id: 2, name: 'Mike Thompson', sessions: 8 },
-    { id: 3, name: 'Emily Davis', sessions: 15 },
-    { id: 4, name: 'James Wilson', sessions: 6 },
-    { id: 5, name: 'Lisa Anderson', sessions: 10 },
-    { id: 6, name: 'David Martinez', sessions: 9 },
-    { id: 7, name: 'Rachel Brown', sessions: 14 },
-    { id: 8, name: 'Chris Taylor', sessions: 7 },
-  ];
+  const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  useEffect(() => {
+    filterClients();
+  }, [searchQuery, clients]);
+
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, email, phone, total_sessions')
+        .order('name');
+
+      if (data) {
+        setClients(data);
+        setFilteredClients(data);
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterClients = () => {
+    if (!searchQuery.trim()) {
+      setFilteredClients(clients);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = clients.filter((client) =>
+      client.name.toLowerCase().includes(query) ||
+      client.email?.toLowerCase().includes(query) ||
+      client.phone?.toLowerCase().includes(query)
+    );
+    setFilteredClients(filtered);
+  };
+
+  const handleClientPress = (clientId: string) => {
+    router.push(`/client/${clientId}`);
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#1a8dff" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Clients</Text>
-        <Text style={styles.subtitle}>{mockClients.length} active clients</Text>
+        <Text style={styles.subtitle}>{clients.length} active clients</Text>
       </View>
 
       <View style={styles.searchContainer}>
@@ -28,24 +86,36 @@ export default function ClientsScreen() {
           style={styles.searchInput}
           placeholder="Search clients..."
           placeholderTextColor="#5b6f92"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
       </View>
 
       <ScrollView style={styles.clientList} contentContainerStyle={styles.clientListContent}>
-        {mockClients.map((client) => (
-          <TouchableOpacity key={client.id} style={styles.clientCard}>
+        {filteredClients.map((client) => (
+          <TouchableOpacity
+            key={client.id}
+            style={styles.clientCard}
+            onPress={() => handleClientPress(client.id)}
+          >
             <View style={styles.clientInfo}>
               <View style={styles.avatarContainer}>
                 <User size={24} color="#1a8dff" strokeWidth={2} />
               </View>
               <View style={styles.clientDetails}>
                 <Text style={styles.clientName}>{client.name}</Text>
-                <Text style={styles.clientSessions}>{client.sessions} sessions completed</Text>
+                <Text style={styles.clientSessions}>{client.total_sessions} sessions completed</Text>
               </View>
             </View>
             <ChevronRight size={20} color="#5b6f92" strokeWidth={2} />
           </TouchableOpacity>
         ))}
+
+        {filteredClients.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No clients found</Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -55,6 +125,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#02040a',
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     paddingTop: 60,
@@ -138,6 +212,16 @@ const styles = StyleSheet.create({
   },
   clientSessions: {
     fontSize: 14,
+    color: '#5b6f92',
+    fontWeight: '500',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
     color: '#5b6f92',
     fontWeight: '500',
   },
