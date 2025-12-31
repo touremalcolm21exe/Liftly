@@ -11,12 +11,6 @@ interface Client {
   phone: string | null;
   timezone: string;
   goals_notes: string | null;
-  limitations: {
-    upper_body: boolean;
-    lower_body: boolean;
-    cardio: boolean;
-    mobility: boolean;
-  };
   total_sessions: number;
 }
 
@@ -61,7 +55,6 @@ export default function ClientProfileScreen() {
           phone: client.phone,
           timezone: client.timezone,
           goals_notes: client.goals_notes,
-          limitations: client.limitations,
           updated_at: new Date().toISOString(),
         })
         .eq('id', client.id);
@@ -74,17 +67,6 @@ export default function ClientProfileScreen() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const toggleLimitation = (key: keyof Client['limitations']) => {
-    if (!client) return;
-    setClient({
-      ...client,
-      limitations: {
-        ...client.limitations,
-        [key]: !client.limitations[key],
-      },
-    });
   };
 
   if (loading) {
@@ -203,51 +185,6 @@ export default function ClientProfileScreen() {
             textAlignVertical="top"
           />
         </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>LIMITATIONS</Text>
-          <View style={styles.checkboxGroup}>
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => toggleLimitation('upper_body')}
-            >
-              <View style={[styles.checkboxBox, client.limitations.upper_body && styles.checkboxBoxChecked]}>
-                {client.limitations.upper_body && <View style={styles.checkboxCheck} />}
-              </View>
-              <Text style={styles.checkboxLabel}>Upper-body limitation</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => toggleLimitation('lower_body')}
-            >
-              <View style={[styles.checkboxBox, client.limitations.lower_body && styles.checkboxBoxChecked]}>
-                {client.limitations.lower_body && <View style={styles.checkboxCheck} />}
-              </View>
-              <Text style={styles.checkboxLabel}>Lower-body limitation</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => toggleLimitation('cardio')}
-            >
-              <View style={[styles.checkboxBox, client.limitations.cardio && styles.checkboxBoxChecked]}>
-                {client.limitations.cardio && <View style={styles.checkboxCheck} />}
-              </View>
-              <Text style={styles.checkboxLabel}>Cardio limitation</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => toggleLimitation('mobility')}
-            >
-              <View style={[styles.checkboxBox, client.limitations.mobility && styles.checkboxBoxChecked]}>
-                {client.limitations.mobility && <View style={styles.checkboxCheck} />}
-              </View>
-              <Text style={styles.checkboxLabel}>Mobility limitation</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
@@ -362,43 +299,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '500',
     minHeight: 160,
-  },
-  checkboxGroup: {
-    gap: 12,
-  },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#050814',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 16,
-  },
-  checkboxBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#5b6f92',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  checkboxBoxChecked: {
-    backgroundColor: '#1a8dff',
-    borderColor: '#1a8dff',
-  },
-  checkboxCheck: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    backgroundColor: '#ffffff',
-  },
-  checkboxLabel: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '600',
   },
   errorText: {
     fontSize: 16,
