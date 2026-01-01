@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Users, Calendar, Dumbbell, TrendingUp } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   const progress = 0.65;
@@ -60,14 +61,22 @@ export default function HomeScreen() {
 
       <View style={styles.quickActions}>
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/clients')}
+            activeOpacity={0.7}
+          >
             <View style={styles.actionIcon}>
               <Users size={32} color="#1a8dff" strokeWidth={2} />
             </View>
             <Text style={styles.actionLabel}>Clients</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/schedule')}
+            activeOpacity={0.7}
+          >
             <View style={styles.actionIcon}>
               <Calendar size={32} color="#1a8dff" strokeWidth={2} />
             </View>
@@ -76,14 +85,22 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/clients')}
+            activeOpacity={0.7}
+          >
             <View style={styles.actionIcon}>
               <Dumbbell size={32} color="#1a8dff" strokeWidth={2} />
             </View>
             <Text style={styles.actionLabel}>Workouts</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/stats')}
+            activeOpacity={0.7}
+          >
             <View style={styles.actionIcon}>
               <TrendingUp size={32} color="#1a8dff" strokeWidth={2} />
             </View>
