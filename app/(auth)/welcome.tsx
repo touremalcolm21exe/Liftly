@@ -8,7 +8,7 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Dumbbell size={64} color="#3b82f6" strokeWidth={2} />
+        <Dumbbell size={64} color="#1a8dff" strokeWidth={2} />
         <Text style={styles.title}>FitTrainer Pro</Text>
         <Text style={styles.subtitle}>Professional Fitness Management</Text>
       </View>
@@ -17,10 +17,13 @@ export default function WelcomeScreen() {
         <Text style={styles.prompt}>Get started by choosing your role</Text>
 
         <TouchableOpacity
-          style={[styles.roleButton, styles.trainerButton]}
+          style={styles.roleButton}
           onPress={() => router.push('/(auth)/signup-trainer')}
+          activeOpacity={0.7}
         >
-          <Dumbbell size={28} color="#fff" strokeWidth={2} />
+          <View style={styles.iconContainer}>
+            <Dumbbell size={28} color="#1a8dff" strokeWidth={2} />
+          </View>
           <View style={styles.buttonTextContainer}>
             <Text style={styles.roleButtonTitle}>Sign up as Trainer</Text>
             <Text style={styles.roleButtonSubtitle}>
@@ -30,10 +33,13 @@ export default function WelcomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.roleButton, styles.clientButton]}
+          style={styles.roleButton}
           onPress={() => router.push('/(auth)/signup-client')}
+          activeOpacity={0.7}
         >
-          <Users size={28} color="#fff" strokeWidth={2} />
+          <View style={styles.iconContainer}>
+            <Users size={28} color="#1a8dff" strokeWidth={2} />
+          </View>
           <View style={styles.buttonTextContainer}>
             <Text style={styles.roleButtonTitle}>Sign up as Client</Text>
             <Text style={styles.roleButtonSubtitle}>
@@ -56,26 +62,25 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#02040a',
   },
   header: {
     alignItems: 'center',
     paddingTop: 80,
-    paddingBottom: 40,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    paddingBottom: 60,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
-    color: '#1e293b',
-    marginTop: 16,
+    color: '#ffffff',
+    marginTop: 20,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#5b6f92',
     marginTop: 8,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -85,41 +90,44 @@ const styles = StyleSheet.create({
   prompt: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#334155',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 32,
+    letterSpacing: -0.3,
   },
   roleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
+    backgroundColor: '#0b0f1e',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 24,
+    borderRadius: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  trainerButton: {
-    backgroundColor: '#3b82f6',
-  },
-  clientButton: {
-    backgroundColor: '#10b981',
+  iconContainer: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(26, 141, 255, 0.1)',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   buttonTextContainer: {
-    marginLeft: 16,
     flex: 1,
   },
   roleButtonTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: '#ffffff',
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
   roleButtonSubtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#5b6f92',
+    fontWeight: '600',
   },
   loginContainer: {
     flexDirection: 'row',
@@ -129,11 +137,11 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#5b6f92',
   },
   loginLink: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: '#1a8dff',
   },
 });

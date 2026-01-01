@@ -69,7 +69,7 @@ export default function LoginScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color="#64748b" strokeWidth={2} />
+          <ArrowLeft size={24} color="#5b6f92" strokeWidth={2} />
         </TouchableOpacity>
 
         <View style={styles.header}>
@@ -144,7 +144,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#02040a',
   },
   scrollContent: {
     flexGrow: 1,
@@ -158,29 +158,39 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 40,
+    paddingTop: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
-    color: '#1e293b',
+    color: '#ffffff',
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#5b6f92',
+    fontWeight: '600',
   },
   form: {
-    flex: 1,
+    backgroundColor: '#0b0f1e',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    padding: 24,
   },
   errorContainer: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 20,
   },
   errorText: {
-    color: '#dc2626',
+    color: '#ef4444',
     fontSize: 14,
+    fontWeight: '600',
   },
   inputGroup: {
     marginBottom: 20,
@@ -188,38 +198,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
+    color: '#ffffff',
     marginBottom: 8,
+    letterSpacing: -0.2,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#050814',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    color: '#1e293b',
+    color: '#ffffff',
   },
   loginButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#1a8dff',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   loginButtonDisabled: {
-    backgroundColor: '#94a3b8',
-    shadowOpacity: 0,
+    backgroundColor: '#0b3d6b',
+    opacity: 0.5,
   },
   loginButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   signupContainer: {
     flexDirection: 'row',
@@ -229,11 +236,11 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#5b6f92',
   },
   signupLink: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: '#1a8dff',
   },
 });

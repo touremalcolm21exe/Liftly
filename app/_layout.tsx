@@ -44,7 +44,7 @@ export default function RootLayout() {
   if (isAuthenticated === null) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color="#1a8dff" />
       </View>
     );
   }
@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#02040a',
   },
 });
