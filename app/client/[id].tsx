@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { ChevronLeft, Save, User, Mail, Phone, Globe, Plus, ChevronDown, ChevronUp, Trash2, Dumbbell } from 'lucide-react-native';
+import { ChevronLeft, Save, User, Mail, Phone, Globe, Plus, ChevronDown, ChevronUp, Trash2, Dumbbell, TrendingUp } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import WorkoutLogModal from '@/components/WorkoutLogModal';
+import ProgressModal from '@/components/ProgressModal';
+import TrendChart from '@/components/TrendChart';
 
 interface Client {
   id: string;
@@ -31,6 +33,17 @@ interface Workout {
   exercises: WorkoutExercise[];
 }
 
+interface ProgressMeasurement {
+  id: string;
+  date: string;
+  weight: number | null;
+  measurement_1: number | null;
+  measurement_1_label: string;
+  measurement_2: number | null;
+  measurement_2_label: string;
+  notes: string | null;
+}
+
 export default function ClientProfileScreen() {
   const { id } = useLocalSearchParams();
   const [client, setClient] = useState<Client | null>(null);
@@ -41,10 +54,15 @@ export default function ClientProfileScreen() {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [expandedWorkouts, setExpandedWorkouts] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [progressData, setProgressData] = useState<ProgressMeasurement[]>([]);
+  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [deleteMeasurementConfirm, setDeleteMeasurementConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     loadClient();
     loadWorkouts();
+    loadProgress();
   }, [id]);
 
   const loadClient = async () => {
@@ -102,6 +120,25 @@ export default function ClientProfileScreen() {
     }
   };
 
+  const loadProgress = async () => {
+    setLoadingProgress(true);
+    try {
+      const { data, error } = await supabase
+        .from('progress_measurements')
+        .select('*')
+        .eq('client_id', id)
+        .order('date', { ascending: true });
+
+      if (data) {
+        setProgressData(data);
+      }
+    } catch (error) {
+      console.error('Error loading progress:', error);
+    } finally {
+      setLoadingProgress(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!client) return;
 
@@ -152,6 +189,22 @@ export default function ClientProfileScreen() {
       }
     } catch (error) {
       console.error('Error deleting workout:', error);
+    }
+  };
+
+  const handleDeleteMeasurement = async (measurementId: string) => {
+    try {
+      const { error } = await supabase
+        .from('progress_measurements')
+        .delete()
+        .eq('id', measurementId);
+
+      if (!error) {
+        loadProgress();
+        setDeleteMeasurementConfirm(null);
+      }
+    } catch (error) {
+      console.error('Error deleting measurement:', error);
     }
   };
 
@@ -359,6 +412,108 @@ export default function ClientProfileScreen() {
             </View>
           )}
         </View>
+
+        <View style={styles.section}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.sectionLabel}>PROGRESS & MEASUREMENTS</Text>
+            <TouchableOpacity
+              style={styles.logProgressButton}
+              onPress={() => setShowProgressModal(true)}
+            >
+              <Plus size={18} color="#ffffff" strokeWidth={2} />
+              <Text style={styles.logProgressText}>Log Entry</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingProgress ? (
+            <View style={styles.progressLoading}>
+              <ActivityIndicator size="small" color="#1a8dff" />
+            </View>
+          ) : progressData.length === 0 ? (
+            <View style={styles.emptyProgress}>
+              <TrendingUp size={40} color="#5b6f92" strokeWidth={2} />
+              <Text style={styles.emptyText}>No progress data yet</Text>
+              <Text style={styles.emptySubtext}>Tap "Log Entry" to start tracking</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.chartsContainer}>
+                {progressData.some(p => p.weight !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.weight !== null)
+                      .map(p => ({ date: p.date, value: p.weight! }))}
+                    label="Weight"
+                    unit="lbs"
+                    color="#1a8dff"
+                  />
+                )}
+
+                {progressData.some(p => p.measurement_1 !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.measurement_1 !== null)
+                      .map(p => ({ date: p.date, value: p.measurement_1! }))}
+                    label={progressData.find(p => p.measurement_1 !== null)?.measurement_1_label || 'Measurement 1'}
+                    unit="in"
+                    color="#22c55e"
+                  />
+                )}
+
+                {progressData.some(p => p.measurement_2 !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.measurement_2 !== null)
+                      .map(p => ({ date: p.date, value: p.measurement_2! }))}
+                    label={progressData.find(p => p.measurement_2 !== null)?.measurement_2_label || 'Measurement 2'}
+                    unit="in"
+                    color="#f59e0b"
+                  />
+                )}
+              </View>
+
+              <View style={styles.measurementsList}>
+                <Text style={styles.measurementsListTitle}>History</Text>
+                {progressData.slice().reverse().map((measurement) => (
+                  <View key={measurement.id} style={styles.measurementCard}>
+                    <View style={styles.measurementHeader}>
+                      <Text style={styles.measurementDate}>{formatDate(measurement.date)}</Text>
+                      <TouchableOpacity
+                        onPress={() => setDeleteMeasurementConfirm(measurement.id)}
+                        style={styles.deleteMeasurementButton}
+                      >
+                        <Trash2 size={16} color="#ff4444" strokeWidth={2} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.measurementValues}>
+                      {measurement.weight !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>Weight</Text>
+                          <Text style={styles.measurementValueText}>{measurement.weight} lbs</Text>
+                        </View>
+                      )}
+                      {measurement.measurement_1 !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>{measurement.measurement_1_label}</Text>
+                          <Text style={styles.measurementValueText}>{measurement.measurement_1} in</Text>
+                        </View>
+                      )}
+                      {measurement.measurement_2 !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>{measurement.measurement_2_label}</Text>
+                          <Text style={styles.measurementValueText}>{measurement.measurement_2} in</Text>
+                        </View>
+                      )}
+                    </View>
+                    {measurement.notes && (
+                      <Text style={styles.measurementNotes}>{measurement.notes}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
       </ScrollView>
 
       <WorkoutLogModal
@@ -366,6 +521,13 @@ export default function ClientProfileScreen() {
         clientId={id as string}
         onClose={() => setShowWorkoutModal(false)}
         onSave={loadWorkouts}
+      />
+
+      <ProgressModal
+        visible={showProgressModal}
+        clientId={id as string}
+        onClose={() => setShowProgressModal(false)}
+        onSave={loadProgress}
       />
 
       <Modal
@@ -390,6 +552,36 @@ export default function ClientProfileScreen() {
               <TouchableOpacity
                 style={styles.deleteModalConfirm}
                 onPress={() => deleteConfirm && handleDeleteWorkout(deleteConfirm)}
+              >
+                <Text style={styles.deleteModalConfirmText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteMeasurementConfirm !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeleteMeasurementConfirm(null)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <Text style={styles.deleteModalTitle}>Delete Measurement?</Text>
+            <Text style={styles.deleteModalText}>
+              This will permanently delete this progress entry. This action cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancel}
+                onPress={() => setDeleteMeasurementConfirm(null)}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteModalConfirm}
+                onPress={() => deleteMeasurementConfirm && handleDeleteMeasurement(deleteMeasurementConfirm)}
               >
                 <Text style={styles.deleteModalConfirmText}>Delete</Text>
               </TouchableOpacity>
@@ -695,5 +887,109 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '700',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  logProgressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a8dff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  logProgressText: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  progressLoading: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyProgress: {
+    backgroundColor: '#050814',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  chartsContainer: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  measurementsList: {
+    gap: 12,
+  },
+  measurementsListTitle: {
+    fontSize: 12,
+    color: '#5b6f92',
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  measurementCard: {
+    backgroundColor: '#050814',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    gap: 12,
+  },
+  measurementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  measurementDate: {
+    fontSize: 15,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  deleteMeasurementButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  measurementValues: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  measurementValue: {
+    minWidth: 80,
+  },
+  measurementValueLabel: {
+    fontSize: 11,
+    color: '#5b6f92',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  measurementValueText: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  measurementNotes: {
+    fontSize: 13,
+    color: '#5b6f92',
+    fontWeight: '500',
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 });
