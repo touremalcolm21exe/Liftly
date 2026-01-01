@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { ChevronLeft, Save, User, Mail, Phone, Globe, Plus, ChevronDown, ChevronUp, Trash2, Dumbbell, TrendingUp } from 'lucide-react-native';
+import { ChevronLeft, Save, User, Mail, Phone, Globe, Plus, ChevronDown, ChevronUp, Trash2, Dumbbell, TrendingUp, MessageSquare, Send } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import WorkoutLogModal from '@/components/WorkoutLogModal';
 import ProgressModal from '@/components/ProgressModal';
@@ -44,6 +44,13 @@ interface ProgressMeasurement {
   notes: string | null;
 }
 
+interface ClientNote {
+  id: string;
+  client_id: string;
+  note_text: string;
+  created_at: string;
+}
+
 export default function ClientProfileScreen() {
   const { id } = useLocalSearchParams();
   const [client, setClient] = useState<Client | null>(null);
@@ -58,11 +65,17 @@ export default function ClientProfileScreen() {
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [deleteMeasurementConfirm, setDeleteMeasurementConfirm] = useState<string | null>(null);
+  const [notes, setNotes] = useState<ClientNote[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
+  const [deleteNoteConfirm, setDeleteNoteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     loadClient();
     loadWorkouts();
     loadProgress();
+    loadNotes();
   }, [id]);
 
   const loadClient = async () => {
@@ -136,6 +149,64 @@ export default function ClientProfileScreen() {
       console.error('Error loading progress:', error);
     } finally {
       setLoadingProgress(false);
+    }
+  };
+
+  const loadNotes = async () => {
+    setLoadingNotes(true);
+    try {
+      const { data, error } = await supabase
+        .from('client_notes')
+        .select('*')
+        .eq('client_id', id)
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setNotes(data);
+      }
+    } catch (error) {
+      console.error('Error loading notes:', error);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!newNoteText.trim()) return;
+
+    setAddingNote(true);
+    try {
+      const { error } = await supabase
+        .from('client_notes')
+        .insert({
+          client_id: id,
+          note_text: newNoteText.trim(),
+        });
+
+      if (!error) {
+        setNewNoteText('');
+        loadNotes();
+      }
+    } catch (error) {
+      console.error('Error adding note:', error);
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const { error } = await supabase
+        .from('client_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (!error) {
+        loadNotes();
+        setDeleteNoteConfirm(null);
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error);
     }
   };
 
@@ -514,6 +585,75 @@ export default function ClientProfileScreen() {
             </>
           )}
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>NOTES & CHECK-INS</Text>
+
+          <View style={styles.noteInput}>
+            <TextInput
+              style={styles.noteTextArea}
+              value={newNoteText}
+              onChangeText={setNewNoteText}
+              placeholder="Add a note, check-in, or reminder..."
+              placeholderTextColor="#5b6f92"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, !newNoteText.trim() && styles.sendButtonDisabled]}
+              onPress={handleAddNote}
+              disabled={!newNoteText.trim() || addingNote}
+            >
+              {addingNote ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Send size={20} color="#ffffff" strokeWidth={2} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {loadingNotes ? (
+            <View style={styles.notesLoading}>
+              <ActivityIndicator size="small" color="#1a8dff" />
+            </View>
+          ) : notes.length === 0 ? (
+            <View style={styles.emptyNotes}>
+              <MessageSquare size={40} color="#5b6f92" strokeWidth={2} />
+              <Text style={styles.emptyText}>No notes yet</Text>
+              <Text style={styles.emptySubtext}>Add your first note above</Text>
+            </View>
+          ) : (
+            <View style={styles.notesList}>
+              {notes.map((note) => (
+                <View key={note.id} style={styles.noteCard}>
+                  <View style={styles.noteHeader}>
+                    <Text style={styles.noteTimestamp}>
+                      {new Date(note.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}{' '}
+                      at{' '}
+                      {new Date(note.created_at).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      })}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setDeleteNoteConfirm(note.id)}
+                      style={styles.deleteNoteButton}
+                    >
+                      <Trash2 size={16} color="#ff4444" strokeWidth={2} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.noteText}>{note.note_text}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       <WorkoutLogModal
@@ -582,6 +722,36 @@ export default function ClientProfileScreen() {
               <TouchableOpacity
                 style={styles.deleteModalConfirm}
                 onPress={() => deleteMeasurementConfirm && handleDeleteMeasurement(deleteMeasurementConfirm)}
+              >
+                <Text style={styles.deleteModalConfirmText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteNoteConfirm !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeleteNoteConfirm(null)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <Text style={styles.deleteModalTitle}>Delete Note?</Text>
+            <Text style={styles.deleteModalText}>
+              This will permanently delete this note. This action cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancel}
+                onPress={() => setDeleteNoteConfirm(null)}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteModalConfirm}
+                onPress={() => deleteNoteConfirm && handleDeleteNote(deleteNoteConfirm)}
               >
                 <Text style={styles.deleteModalConfirmText}>Delete</Text>
               </TouchableOpacity>
@@ -991,5 +1161,83 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontStyle: 'italic',
     lineHeight: 18,
+  },
+  noteInput: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  noteTextArea: {
+    flex: 1,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+    minHeight: 100,
+  },
+  sendButton: {
+    backgroundColor: '#1a8dff',
+    borderRadius: 12,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.4,
+  },
+  notesLoading: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyNotes: {
+    backgroundColor: '#050814',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  notesList: {
+    gap: 12,
+  },
+  noteCard: {
+    backgroundColor: '#050814',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    gap: 8,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  noteTimestamp: {
+    fontSize: 12,
+    color: '#5b6f92',
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  deleteNoteButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteText: {
+    fontSize: 15,
+    color: '#ffffff',
+    fontWeight: '500',
+    lineHeight: 22,
+    letterSpacing: -0.2,
   },
 });
