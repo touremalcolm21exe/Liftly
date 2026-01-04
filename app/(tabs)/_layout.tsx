@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Users, Calendar, BarChart3 } from 'lucide-react-native';
+import { Home, Users, Calendar, BarChart3, Settings } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -55,6 +55,15 @@ export default function TabLayout() {
           title: 'Stats',
           tabBarIcon: ({ size, color }) => (
             <BarChart3 size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ size, color }) => (
+            <Settings size={size} color={color} strokeWidth={2} />
           ),
         }}
       />
