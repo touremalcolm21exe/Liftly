@@ -9,8 +9,8 @@ export default function WelcomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Dumbbell size={64} color="#1a8dff" strokeWidth={2} />
-        <Text style={styles.title}>FitTrainer Pro</Text>
-        <Text style={styles.subtitle}>Professional Fitness Management</Text>
+        <Text style={styles.title}>Liftly</Text>
+        <Text style={styles.subtitle}>Your Fitness Journey Starts Here</Text>
       </View>
 
       <View style={styles.content}>

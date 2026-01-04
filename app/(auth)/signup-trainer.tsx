@@ -85,7 +85,7 @@ export default function SignupTrainerScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Create Trainer Account</Text>
           <Text style={styles.subtitle}>
-            Start managing your clients and sessions
+            Start managing your clients and sessions on Liftly
           </Text>
         </View>
 

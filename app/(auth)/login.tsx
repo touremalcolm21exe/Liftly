@@ -74,7 +74,7 @@ export default function LoginScreen() {
 
         <View style={styles.header}>
           <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
+          <Text style={styles.subtitle}>Sign in to your Liftly account</Text>
         </View>
 
         <View style={styles.form}>

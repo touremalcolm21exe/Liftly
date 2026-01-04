@@ -102,7 +102,7 @@ export default function SignupClientScreen() {
 
         <View style={styles.header}>
           <Text style={styles.title}>Create Client Account</Text>
-          <Text style={styles.subtitle}>Join your trainer and start your fitness journey</Text>
+          <Text style={styles.subtitle}>Join your trainer on Liftly and start your fitness journey</Text>
         </View>
 
         <View style={styles.formCard}>
