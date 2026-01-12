@@ -116,6 +116,7 @@ export default function ScheduleScreen() {
     const businessHours = [];
     for (let hour = 4; hour <= 23; hour++) {
       businessHours.push(`${String(hour).padStart(2, '0')}:00:00`);
+      businessHours.push(`${String(hour).padStart(2, '0')}:30:00`);
     }
     businessHours.push('00:00:00');
 
