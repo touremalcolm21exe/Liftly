@@ -113,10 +113,11 @@ export default function ScheduleScreen() {
     const selectedDateStr = selectedDate.toISOString().split('T')[0];
     const daysSessions = sessions.filter((s) => s.date === selectedDateStr);
 
-    const businessHours = [
-      '09:00:00', '10:00:00', '11:00:00', '14:00:00',
-      '15:00:00', '16:00:00', '17:00:00', '18:00:00'
-    ];
+    const businessHours = [];
+    for (let hour = 4; hour <= 23; hour++) {
+      businessHours.push(`${String(hour).padStart(2, '0')}:00:00`);
+    }
+    businessHours.push('00:00:00');
 
     businessHours.forEach((time) => {
       const existingSession = daysSessions.find((s) => s.start_time === time);
