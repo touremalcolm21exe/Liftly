@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { X, User, MapPin, Clock } from 'lucide-react-native';
+import { X, User, MapPin, Clock, ChevronDown } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 
 interface BookingModalProps {
   visible: boolean;
@@ -13,8 +14,50 @@ interface BookingModalProps {
 
 export default function BookingModal({ visible, onClose, onConfirm, selectedDate, selectedTime, clients }: BookingModalProps) {
   const [clientName, setClientName] = useState('');
-  const [location, setLocation] = useState('Studio A');
+  const [location, setLocation] = useState('');
   const [showClientPicker, setShowClientPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [previousLocations, setPreviousLocations] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (visible) {
+      loadPreviousLocations();
+    }
+  }, [visible]);
+
+  const loadPreviousLocations = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: trainer } = await supabase
+      .from('trainers')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!trainer) return;
+
+    const { data: trainerClients } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('trainer_id', trainer.id);
+
+    if (!trainerClients || trainerClients.length === 0) return;
+
+    const clientIds = trainerClients.map(c => c.id);
+
+    const { data: sessions } = await supabase
+      .from('sessions')
+      .select('location')
+      .in('client_id', clientIds)
+      .not('location', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (sessions) {
+      const uniqueLocations = Array.from(new Set(sessions.map(s => s.location).filter(Boolean)));
+      setPreviousLocations(uniqueLocations.slice(0, 10));
+    }
+  };
 
   const formatDate = (date: Date) => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
@@ -30,16 +73,21 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   };
 
   const handleConfirm = () => {
-    if (clientName.trim()) {
+    if (clientName.trim() && location.trim()) {
       onConfirm(clientName, location);
       setClientName('');
-      setLocation('Studio A');
+      setLocation('');
     }
   };
 
   const handleClientSelect = (name: string) => {
     setClientName(name);
     setShowClientPicker(false);
+  };
+
+  const handleLocationSelect = (loc: string) => {
+    setLocation(loc);
+    setShowLocationPicker(false);
   };
 
   return (
@@ -107,29 +155,42 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Location</Text>
-              <View style={styles.locationButtons}>
-                {['Studio A', 'Studio B', 'Studio C'].map((loc) => (
-                  <TouchableOpacity
-                    key={loc}
-                    style={[
-                      styles.locationButton,
-                      location === loc && styles.locationButtonActive,
-                    ]}
-                    onPress={() => setLocation(loc)}
-                  >
-                    <MapPin
-                      size={16}
-                      color={location === loc ? '#ffffff' : '#5b6f92'}
-                      strokeWidth={2}
-                    />
-                    <Text style={[
-                      styles.locationButtonText,
-                      location === loc && styles.locationButtonTextActive,
-                    ]}>
-                      {loc}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.locationInputContainer}>
+                <View style={styles.locationInputWrapper}>
+                  <MapPin size={20} color="#5b6f92" strokeWidth={2} />
+                  <TextInput
+                    style={styles.locationInput}
+                    placeholder="Enter address or location..."
+                    placeholderTextColor="#5b6f92"
+                    value={location}
+                    onChangeText={setLocation}
+                    onFocus={() => setShowLocationPicker(false)}
+                  />
+                  {previousLocations.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setShowLocationPicker(!showLocationPicker)}
+                      style={styles.dropdownButton}
+                    >
+                      <ChevronDown size={20} color="#5b6f92" strokeWidth={2} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {showLocationPicker && previousLocations.length > 0 && (
+                  <View style={styles.locationPicker}>
+                    <Text style={styles.pickerTitle}>Recent Locations</Text>
+                    {previousLocations.map((loc, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.locationOption}
+                        onPress={() => handleLocationSelect(loc)}
+                      >
+                        <MapPin size={16} color="#5b6f92" strokeWidth={2} />
+                        <Text style={styles.locationOptionText}>{loc}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
           </ScrollView>
@@ -142,9 +203,9 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, !clientName && styles.confirmButtonDisabled]}
+              style={[styles.confirmButton, (!clientName || !location) && styles.confirmButtonDisabled]}
               onPress={handleConfirm}
-              disabled={!clientName}
+              disabled={!clientName || !location}
             >
               <Text style={styles.confirmButtonText}>Book Session</Text>
             </TouchableOpacity>
@@ -279,33 +340,58 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 8,
   },
-  locationButtons: {
-    flexDirection: 'row',
-    gap: 12,
+  locationInputContainer: {
+    position: 'relative',
   },
-  locationButton: {
-    flex: 1,
+  locationInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#050814',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 16,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
   },
-  locationButtonActive: {
-    backgroundColor: '#1a8dff',
-    borderColor: '#1a8dff',
+  locationInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '500',
+    paddingVertical: 4,
   },
-  locationButtonText: {
-    fontSize: 14,
+  dropdownButton: {
+    padding: 4,
+  },
+  locationPicker: {
+    marginTop: 8,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 12,
+  },
+  pickerTitle: {
+    fontSize: 12,
     color: '#5b6f92',
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    paddingHorizontal: 8,
   },
-  locationButtonTextActive: {
+  locationOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 12,
+  },
+  locationOptionText: {
+    fontSize: 16,
     color: '#ffffff',
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
