@@ -28,9 +28,27 @@ export default function ClientsScreen() {
 
   const loadClients = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: trainer } = await supabase
+        .from('trainers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!trainer) {
+        setLoading(false);
+        return;
+      }
+
+      const { data } = await supabase
         .from('clients')
         .select('id, name, email, phone, total_sessions')
+        .eq('trainer_id', trainer.id)
         .order('name');
 
       if (data) {

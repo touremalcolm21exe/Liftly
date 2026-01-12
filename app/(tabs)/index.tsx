@@ -1,12 +1,70 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Users, Calendar, Dumbbell, TrendingUp } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { router } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 
 export default function HomeScreen() {
-  const progress = 0.65;
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [completedSessions, setCompletedSessions] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTodaySessions();
+  }, []);
+
+  const loadTodaySessions = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: trainer } = await supabase
+        .from('trainers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!trainer) return;
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id, status, client_id')
+        .eq('date', today)
+        .in('client_id',
+          supabase
+            .from('clients')
+            .select('id')
+            .eq('trainer_id', trainer.id)
+        );
+
+      if (sessions) {
+        setTotalSessions(sessions.length);
+        setCompletedSessions(sessions.filter(s => s.status === 'completed').length);
+      }
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const progress = totalSessions > 0 ? completedSessions / totalSessions : 0;
   const circumference = 2 * Math.PI * 60;
   const strokeDashoffset = circumference * (1 - progress);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#1a8dff" />
+      </View>
+    );
+  }
+
+  const remainingSessions = totalSessions - completedSessions;
+  const progressPercentage = totalSessions > 0 ? Math.round(progress * 100) : 0;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -41,18 +99,18 @@ export default function HomeScreen() {
               />
             </Svg>
             <View style={styles.progressText}>
-              <Text style={styles.progressNumber}>65%</Text>
+              <Text style={styles.progressNumber}>{progressPercentage}%</Text>
               <Text style={styles.progressLabel}>Complete</Text>
             </View>
           </View>
           <View style={styles.heroStats}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>8</Text>
+              <Text style={styles.statNumber}>{totalSessions}</Text>
               <Text style={styles.statLabel}>Sessions</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>3</Text>
+              <Text style={styles.statNumber}>{remainingSessions}</Text>
               <Text style={styles.statLabel}>Remaining</Text>
             </View>
           </View>
@@ -116,6 +174,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#02040a',
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     padding: 20,

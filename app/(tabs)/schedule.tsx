@@ -51,18 +51,46 @@ export default function ScheduleScreen() {
 
   const loadData = async () => {
     try {
-      const [sessionsResponse, clientsResponse] = await Promise.all([
-        supabase.from('sessions').select('*').eq('status', 'scheduled'),
-        supabase.from('clients').select('id, name').order('name'),
-      ]);
-
-      if (sessionsResponse.data) {
-        setSessions(sessionsResponse.data);
-        updateSessionsMap(sessionsResponse.data);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
       }
 
-      if (clientsResponse.data) {
-        setClients(clientsResponse.data);
+      const { data: trainer } = await supabase
+        .from('trainers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!trainer) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: clientsList } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('trainer_id', trainer.id)
+        .order('name');
+
+      if (clientsList) {
+        setClients(clientsList);
+
+        const clientIds = clientsList.map(c => c.id);
+
+        if (clientIds.length > 0) {
+          const { data: sessionsList } = await supabase
+            .from('sessions')
+            .select('*')
+            .in('client_id', clientIds)
+            .eq('status', 'scheduled');
+
+          if (sessionsList) {
+            setSessions(sessionsList);
+            updateSessionsMap(sessionsList);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);

@@ -56,29 +56,3 @@ BEGIN
     ALTER TABLE clients ADD COLUMN limitations jsonb DEFAULT '{"upper_body": false, "lower_body": false, "cardio": false, "mobility": false}'::jsonb;
   END IF;
 END $$;
-
--- Update existing clients with sample data
-UPDATE clients 
-SET 
-  phone = CASE 
-    WHEN name = 'Sarah Johnson' THEN '(555) 123-4567'
-    WHEN name = 'Mike Thompson' THEN '(555) 234-5678'
-    WHEN name = 'Emily Davis' THEN '(555) 345-6789'
-    WHEN name = 'James Wilson' THEN '(555) 456-7890'
-    WHEN name = 'Lisa Anderson' THEN '(555) 567-8901'
-    ELSE NULL
-  END,
-  timezone = 'America/New_York',
-  goals_notes = CASE 
-    WHEN name = 'Sarah Johnson' THEN 'Goal: Build strength for marathon training. Prefers morning sessions. Excellent form on squats.'
-    WHEN name = 'Mike Thompson' THEN 'Weight loss goal: 20 lbs. Enjoys HIIT workouts. Works from home, flexible schedule.'
-    WHEN name = 'Emily Davis' THEN 'Training for triathlon. Very disciplined. Needs help with nutrition plan.'
-    WHEN name = 'James Wilson' THEN 'New to fitness. Focus on building healthy habits. Patient and motivated.'
-    WHEN name = 'Lisa Anderson' THEN 'Recovering from knee injury. Building back strength gradually. Physical therapy cleared for training.'
-    ELSE NULL
-  END,
-  limitations = CASE 
-    WHEN name = 'Lisa Anderson' THEN '{"upper_body": false, "lower_body": true, "cardio": false, "mobility": true}'::jsonb
-    ELSE '{"upper_body": false, "lower_body": false, "cardio": false, "mobility": false}'::jsonb
-  END
-WHERE phone IS NULL OR goals_notes IS NULL;
