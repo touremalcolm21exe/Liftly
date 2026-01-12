@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { Search, User, ChevronRight } from 'lucide-react-native';
+import { Search, User, ChevronRight, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import AddClientModal from '@/components/AddClientModal';
 
 interface Client {
   id: string;
@@ -17,6 +18,7 @@ export default function ClientsScreen() {
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     loadClients();
@@ -81,6 +83,29 @@ export default function ClientsScreen() {
     router.push(`/client/${clientId}`);
   };
 
+  const handleAddClient = async (clientData: { name: string; email: string; phone: string }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: trainer } = await supabase
+      .from('trainers')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!trainer) return;
+
+    await supabase.from('clients').insert({
+      name: clientData.name,
+      email: clientData.email || null,
+      phone: clientData.phone || null,
+      trainer_id: trainer.id,
+      total_sessions: 0,
+    });
+
+    await loadClients();
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -92,8 +117,17 @@ export default function ClientsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Clients</Text>
-        <Text style={styles.subtitle}>{clients.length} active clients</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Clients</Text>
+          <Text style={styles.subtitle}>{clients.length} active clients</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowAddModal(true)}
+          activeOpacity={0.7}
+        >
+          <Plus size={24} color="#ffffff" strokeWidth={2.5} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
@@ -131,10 +165,18 @@ export default function ClientsScreen() {
 
         {filteredClients.length === 0 && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No clients found</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No clients found' : 'No clients yet. Add your first client!'}
+            </Text>
           </View>
         )}
       </ScrollView>
+
+      <AddClientModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddClient}
+      />
     </View>
   );
 }
@@ -152,6 +194,12 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerText: {
+    flex: 1,
   },
   title: {
     fontSize: 32,
@@ -164,6 +212,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5b6f92',
     fontWeight: '600',
+  },
+  addButton: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+    backgroundColor: '#1a8dff',
+    shadowColor: '#1a8dff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   searchContainer: {
     flexDirection: 'row',
