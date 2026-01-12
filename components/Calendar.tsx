@@ -71,6 +71,7 @@ export default function Calendar({ selectedDate, onDateSelect, onMonthChange, se
           key={day}
           style={[
             styles.dayCell,
+            hasSession && !isSelectedDay && !isCurrentDay && styles.dayWithSession,
             isSelectedDay && styles.selectedDay,
             isCurrentDay && !isSelectedDay && styles.todayDay,
           ]}
@@ -83,11 +84,8 @@ export default function Calendar({ selectedDate, onDateSelect, onMonthChange, se
           ]}>
             {day}
           </Text>
-          {hasSession && (
-            <View style={[
-              styles.sessionDot,
-              isSelectedDay && styles.sessionDotSelected,
-            ]} />
+          {hasSession && !isSelectedDay && (
+            <View style={styles.sessionDot} />
           )}
         </TouchableOpacity>
       );
@@ -180,6 +178,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 4,
     position: 'relative',
+  },
+  dayWithSession: {
+    backgroundColor: 'rgba(26, 141, 255, 0.12)',
+    borderRadius: 12,
   },
   selectedDay: {
     backgroundColor: '#1a8dff',

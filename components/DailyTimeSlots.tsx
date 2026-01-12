@@ -4,6 +4,7 @@ import { Clock, User } from 'lucide-react-native';
 interface Session {
   id: string;
   client_name: string;
+  date: string;
   start_time: string;
   end_time: string;
   location: string;

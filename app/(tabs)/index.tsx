@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Users, Calendar, Dumbbell, TrendingUp } from 'lucide-react-native';
+import { Users, Calendar, Dumbbell, TrendingUp, Clock, MapPin } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
+interface TodaySession {
+  id: string;
+  client_name: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  status: string;
+}
+
 export default function HomeScreen() {
   const [totalSessions, setTotalSessions] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(0);
+  const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,18 +39,24 @@ export default function HomeScreen() {
 
       const today = new Date().toISOString().split('T')[0];
 
+      const { data: clientsList } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('trainer_id', trainer.id);
+
+      if (!clientsList || clientsList.length === 0) return;
+
+      const clientIds = clientsList.map(c => c.id);
+
       const { data: sessions } = await supabase
         .from('sessions')
-        .select('id, status, client_id')
+        .select('id, client_name, start_time, end_time, location, status')
         .eq('date', today)
-        .in('client_id',
-          supabase
-            .from('clients')
-            .select('id')
-            .eq('trainer_id', trainer.id)
-        );
+        .in('client_id', clientIds)
+        .order('start_time');
 
       if (sessions) {
+        setTodaySessions(sessions);
         setTotalSessions(sessions.length);
         setCompletedSessions(sessions.filter(s => s.status === 'completed').length);
       }
@@ -54,6 +70,14 @@ export default function HomeScreen() {
   const progress = totalSessions > 0 ? completedSessions / totalSessions : 0;
   const circumference = 2 * Math.PI * 60;
   const strokeDashoffset = circumference * (1 - progress);
+
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
 
   if (loading) {
     return (
@@ -166,6 +190,42 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {todaySessions.length > 0 && (
+        <View style={styles.sessionsSection}>
+          <Text style={styles.sectionTitle}>Today's Sessions</Text>
+          {todaySessions.map((session) => (
+            <View key={session.id} style={styles.sessionCard}>
+              <View style={styles.sessionHeader}>
+                <Text style={styles.sessionClient}>{session.client_name}</Text>
+                <View style={[
+                  styles.statusBadge,
+                  session.status === 'completed' && styles.statusBadgeCompleted
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    session.status === 'completed' && styles.statusTextCompleted
+                  ]}>
+                    {session.status === 'completed' ? 'Completed' : 'Scheduled'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.sessionDetails}>
+                <View style={styles.sessionDetail}>
+                  <Clock size={16} color="#5b6f92" strokeWidth={2} />
+                  <Text style={styles.sessionDetailText}>
+                    {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                  </Text>
+                </View>
+                <View style={styles.sessionDetail}>
+                  <MapPin size={16} color="#5b6f92" strokeWidth={2} />
+                  <Text style={styles.sessionDetailText}>{session.location}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -287,5 +347,65 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  sessionsSection: {
+    marginTop: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    color: '#ffffff',
+    fontWeight: '700',
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
+  sessionCard: {
+    backgroundColor: '#0b0f1e',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    marginBottom: 12,
+  },
+  sessionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sessionClient: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  statusBadge: {
+    backgroundColor: 'rgba(26, 141, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeCompleted: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#1a8dff',
+    fontWeight: '600',
+  },
+  statusTextCompleted: {
+    color: '#22c55e',
+  },
+  sessionDetails: {
+    gap: 8,
+  },
+  sessionDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sessionDetailText: {
+    fontSize: 14,
+    color: '#5b6f92',
+    fontWeight: '500',
   },
 });
