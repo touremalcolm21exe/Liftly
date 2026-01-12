@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Search, User, ChevronRight, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import AddClientModal from '@/components/AddClientModal';
+import PaywallModal from '@/components/PaywallModal';
 
 interface Client {
   id: string;
@@ -19,6 +20,7 @@ export default function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     loadClients();
@@ -83,6 +85,14 @@ export default function ClientsScreen() {
     router.push(`/client/${clientId}`);
   };
 
+  const handleAddButtonPress = () => {
+    if (clients.length >= 5) {
+      setShowPaywall(true);
+    } else {
+      setShowAddModal(true);
+    }
+  };
+
   const handleAddClient = async (clientData: { name: string; email: string; phone: string }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -123,7 +133,7 @@ export default function ClientsScreen() {
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
+          onPress={handleAddButtonPress}
           activeOpacity={0.7}
         >
           <Plus size={24} color="#ffffff" strokeWidth={2.5} />
@@ -176,6 +186,11 @@ export default function ClientsScreen() {
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddClient}
+      />
+
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
       />
     </View>
   );
