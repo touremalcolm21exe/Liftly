@@ -57,7 +57,7 @@ export default function SignupTrainerScreen() {
       if (signUpError) throw signUpError;
 
       if (data.user) {
-        router.replace('/(tabs)');
+        router.replace('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create account');

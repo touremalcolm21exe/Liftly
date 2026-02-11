@@ -75,7 +75,7 @@ export default function SignupClientScreen() {
           );
         }
 
-        router.replace('/(tabs)');
+        router.replace('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
