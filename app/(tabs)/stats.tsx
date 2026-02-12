@@ -1,30 +1,133 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { TrendingUp, TrendingDown, DollarSign, Users, Calendar } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { useFocusEffect } from 'expo-router';
 
 export default function StatsScreen() {
+  const [loading, setLoading] = useState(true);
+  const [activeClients, setActiveClients] = useState(0);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [monthSessions, setMonthSessions] = useState(0);
+  const [previousMonthSessions, setPreviousMonthSessions] = useState(0);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, [])
+  );
+
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: trainer } = await supabase
+        .from('trainers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!trainer) return;
+
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('trainer_id', trainer.id);
+
+      const clientCount = clients?.length || 0;
+      setActiveClients(clientCount);
+
+      if (clientCount === 0) {
+        setTotalSessions(0);
+        setMonthSessions(0);
+        setPreviousMonthSessions(0);
+        return;
+      }
+
+      const clientIds = clients!.map(c => c.id);
+
+      const { data: allSessions } = await supabase
+        .from('sessions')
+        .select('id')
+        .in('client_id', clientIds);
+
+      setTotalSessions(allSessions?.length || 0);
+
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString().split('T')[0];
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+        .toISOString().split('T')[0];
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        .toISOString().split('T')[0];
+
+      const { data: currentMonth } = await supabase
+        .from('sessions')
+        .select('id')
+        .in('client_id', clientIds)
+        .gte('date', currentMonthStart)
+        .lt('date', nextMonthStart);
+
+      setMonthSessions(currentMonth?.length || 0);
+
+      const { data: previousMonth } = await supabase
+        .from('sessions')
+        .select('id')
+        .in('client_id', clientIds)
+        .gte('date', previousMonthStart)
+        .lt('date', currentMonthStart);
+
+      setPreviousMonthSessions(previousMonth?.length || 0);
+
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#1a8dff" />
+      </View>
+    );
+  }
+
+  const sessionChange = previousMonthSessions > 0
+    ? monthSessions - previousMonthSessions
+    : 0;
+  const sessionTrend = sessionChange >= 0 ? 'up' : 'down';
+
   const stats = [
     {
       id: 1,
-      label: 'Revenue',
-      value: '$12,450',
-      change: '+12.5%',
-      trend: 'up',
-      icon: DollarSign,
+      label: 'Total Sessions',
+      value: totalSessions.toString(),
+      change: null,
+      trend: 'neutral',
+      icon: Calendar,
     },
     {
       id: 2,
       label: 'Active Clients',
-      value: '24',
-      change: '+3',
-      trend: 'up',
+      value: activeClients.toString(),
+      change: null,
+      trend: 'neutral',
       icon: Users,
     },
     {
       id: 3,
-      label: 'Sessions',
-      value: '156',
-      change: '-8',
-      trend: 'down',
+      label: 'This Month',
+      value: monthSessions.toString(),
+      change: sessionChange !== 0 ? `${sessionChange > 0 ? '+' : ''}${sessionChange}` : null,
+      trend: sessionTrend,
       icon: TrendingUp,
     },
   ];
@@ -47,22 +150,24 @@ export default function StatsScreen() {
                 <View style={styles.iconContainer}>
                   <Icon size={24} color="#1a8dff" strokeWidth={2} />
                 </View>
-                <View style={[
-                  styles.changeBadge,
-                  isPositive ? styles.changeBadgePositive : styles.changeBadgeNegative
-                ]}>
-                  {isPositive ? (
-                    <TrendingUp size={14} color="#22c55e" strokeWidth={2} />
-                  ) : (
-                    <TrendingDown size={14} color="#ef4444" strokeWidth={2} />
-                  )}
-                  <Text style={[
-                    styles.changeText,
-                    isPositive ? styles.changeTextPositive : styles.changeTextNegative
+                {stat.change && (
+                  <View style={[
+                    styles.changeBadge,
+                    isPositive ? styles.changeBadgePositive : styles.changeBadgeNegative
                   ]}>
-                    {stat.change}
-                  </Text>
-                </View>
+                    {isPositive ? (
+                      <TrendingUp size={14} color="#22c55e" strokeWidth={2} />
+                    ) : (
+                      <TrendingDown size={14} color="#ef4444" strokeWidth={2} />
+                    )}
+                    <Text style={[
+                      styles.changeText,
+                      isPositive ? styles.changeTextPositive : styles.changeTextNegative
+                    ]}>
+                      {stat.change}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
@@ -83,6 +188,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#02040a',
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     paddingTop: 60,

@@ -156,7 +156,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
-              <Users size={32} color="#1a8dff" strokeWidth={2} />
+              <Users size={26} color="#1a8dff" strokeWidth={2} />
             </View>
             <Text style={styles.actionLabel}>Clients</Text>
           </TouchableOpacity>
@@ -167,7 +167,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
-              <Calendar size={32} color="#1a8dff" strokeWidth={2} />
+              <Calendar size={26} color="#1a8dff" strokeWidth={2} />
             </View>
             <Text style={styles.actionLabel}>Schedule</Text>
           </TouchableOpacity>
@@ -180,7 +180,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
-              <Dumbbell size={32} color="#1a8dff" strokeWidth={2} />
+              <Dumbbell size={26} color="#1a8dff" strokeWidth={2} />
             </View>
             <Text style={styles.actionLabel}>Workouts</Text>
           </TouchableOpacity>
@@ -191,7 +191,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
-              <TrendingUp size={32} color="#1a8dff" strokeWidth={2} />
+              <TrendingUp size={26} color="#1a8dff" strokeWidth={2} />
             </View>
             <Text style={styles.actionLabel}>Stats</Text>
           </TouchableOpacity>
@@ -344,10 +344,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
   actionIcon: {
-    marginBottom: 12,
+    marginBottom: 10,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionLabel: {
     fontSize: 15,

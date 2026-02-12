@@ -212,10 +212,10 @@ const styles = StyleSheet.create({
   },
   sessionIndicator: {
     position: 'absolute',
-    bottom: 8,
-    width: 6,
-    height: 6,
-    borderRadius: 1,
+    bottom: 6,
+    width: 5,
+    height: 5,
+    borderRadius: 0,
     backgroundColor: '#1a8dff',
   },
   sessionIndicatorSelected: {
