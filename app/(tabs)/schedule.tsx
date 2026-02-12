@@ -154,7 +154,7 @@ export default function ScheduleScreen() {
     setShowSessionModal(true);
   };
 
-  const handleBookSession = async (clientName: string, location: string) => {
+  const handleBookSession = async (clientId: string, clientName: string, location: string) => {
     if (!selectedSlot) return;
 
     try {
@@ -162,6 +162,7 @@ export default function ScheduleScreen() {
       const dateStr = selectedDate.toISOString().split('T')[0];
 
       const { error } = await supabase.from('sessions').insert({
+        client_id: clientId,
         client_name: clientName,
         date: dateStr,
         start_time: selectedSlot.time,

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Users, Calendar, Dumbbell, TrendingUp, Clock, MapPin } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useCallback } from 'react';
 
 interface TodaySession {
   id: string;
@@ -23,6 +24,12 @@ export default function HomeScreen() {
   useEffect(() => {
     loadTodaySessions();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTodaySessions();
+    }, [])
+  );
 
   const loadTodaySessions = async () => {
     try {

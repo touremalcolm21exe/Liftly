@@ -6,13 +6,14 @@ import { supabase } from '@/lib/supabase';
 interface BookingModalProps {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (clientName: string, location: string) => void;
+  onConfirm: (clientId: string, clientName: string, location: string) => void;
   selectedDate: Date;
   selectedTime: string;
   clients: Array<{ id: string; name: string }>;
 }
 
 export default function BookingModal({ visible, onClose, onConfirm, selectedDate, selectedTime, clients }: BookingModalProps) {
+  const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [location, setLocation] = useState('');
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -73,14 +74,16 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   };
 
   const handleConfirm = () => {
-    if (clientName.trim() && location.trim()) {
-      onConfirm(clientName, location);
+    if (clientId && clientName.trim() && location.trim()) {
+      onConfirm(clientId, clientName, location);
+      setClientId('');
       setClientName('');
       setLocation('');
     }
   };
 
-  const handleClientSelect = (name: string) => {
+  const handleClientSelect = (id: string, name: string) => {
+    setClientId(id);
     setClientName(name);
     setShowClientPicker(false);
   };
@@ -136,19 +139,11 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
                     <TouchableOpacity
                       key={client.id}
                       style={styles.clientOption}
-                      onPress={() => handleClientSelect(client.name)}
+                      onPress={() => handleClientSelect(client.id, client.name)}
                     >
                       <Text style={styles.clientOptionText}>{client.name}</Text>
                     </TouchableOpacity>
                   ))}
-                  <View style={styles.divider} />
-                  <TextInput
-                    style={styles.clientInput}
-                    placeholder="Or type new client name..."
-                    placeholderTextColor="#5b6f92"
-                    value={clientName}
-                    onChangeText={setClientName}
-                  />
                 </View>
               )}
             </View>
@@ -203,9 +198,9 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, (!clientName || !location) && styles.confirmButtonDisabled]}
+              style={[styles.confirmButton, (!clientId || !clientName || !location) && styles.confirmButtonDisabled]}
               onPress={handleConfirm}
-              disabled={!clientName || !location}
+              disabled={!clientId || !clientName || !location}
             >
               <Text style={styles.confirmButtonText}>Book Session</Text>
             </TouchableOpacity>

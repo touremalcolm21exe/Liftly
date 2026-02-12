@@ -84,8 +84,11 @@ export default function Calendar({ selectedDate, onDateSelect, onMonthChange, se
           ]}>
             {day}
           </Text>
-          {hasSession && !isSelectedDay && (
-            <View style={styles.sessionDot} />
+          {hasSession && (
+            <View style={[
+              styles.sessionIndicator,
+              isSelectedDay && styles.sessionIndicatorSelected
+            ]} />
           )}
         </TouchableOpacity>
       );
@@ -128,40 +131,40 @@ export default function Calendar({ selectedDate, onDateSelect, onMonthChange, se
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#0b0f1e',
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 20,
+    padding: 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   navButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthTitle: {
-    fontSize: 18,
+    fontSize: 22,
     color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
   daysOfWeek: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   dayNameCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   dayNameText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#5b6f92',
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -170,30 +173,32 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 4,
   },
   dayCell: {
-    width: `${100 / 7}%`,
+    width: `${(100 - 3 * 4) / 7}%`,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
+    padding: 6,
     position: 'relative',
+    minHeight: 52,
   },
   dayWithSession: {
     backgroundColor: 'rgba(26, 141, 255, 0.12)',
-    borderRadius: 12,
+    borderRadius: 14,
   },
   selectedDay: {
     backgroundColor: '#1a8dff',
-    borderRadius: 12,
+    borderRadius: 14,
   },
   todayDay: {
     borderWidth: 2,
     borderColor: '#1a8dff',
-    borderRadius: 12,
+    borderRadius: 14,
   },
   dayText: {
-    fontSize: 15,
+    fontSize: 17,
     color: '#c8cfdd',
     fontWeight: '600',
   },
@@ -205,15 +210,15 @@ const styles = StyleSheet.create({
     color: '#1a8dff',
     fontWeight: '700',
   },
-  sessionDot: {
+  sessionIndicator: {
     position: 'absolute',
-    bottom: 6,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    bottom: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 1,
     backgroundColor: '#1a8dff',
   },
-  sessionDotSelected: {
+  sessionIndicatorSelected: {
     backgroundColor: '#ffffff',
   },
 });
