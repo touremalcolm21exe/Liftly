@@ -649,6 +649,28 @@ export default function ClientProfileScreen() {
                   />
                 )}
 
+                {progressData.some(p => p.body_fat_percentage !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.body_fat_percentage !== null)
+                      .map(p => ({ date: p.date, value: p.body_fat_percentage! }))}
+                    label="Body Fat"
+                    unit="%"
+                    color="#f59e0b"
+                  />
+                )}
+
+                {progressData.some(p => p.waist_circumference !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.waist_circumference !== null)
+                      .map(p => ({ date: p.date, value: p.waist_circumference! }))}
+                    label="Waist"
+                    unit="in"
+                    color="#8b5cf6"
+                  />
+                )}
+
                 {progressData.some(p => p.measurement_1 !== null) && (
                   <TrendChart
                     data={progressData
@@ -667,7 +689,29 @@ export default function ClientProfileScreen() {
                       .map(p => ({ date: p.date, value: p.measurement_2! }))}
                     label={progressData.find(p => p.measurement_2 !== null)?.measurement_2_label || 'Measurement 2'}
                     unit="in"
-                    color="#f59e0b"
+                    color="#ec4899"
+                  />
+                )}
+
+                {progressData.some(p => p.measurement_3 !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.measurement_3 !== null)
+                      .map(p => ({ date: p.date, value: p.measurement_3! }))}
+                    label={progressData.find(p => p.measurement_3 !== null)?.measurement_3_label || 'Measurement 3'}
+                    unit="in"
+                    color="#06b6d4"
+                  />
+                )}
+
+                {progressData.some(p => p.measurement_4 !== null) && (
+                  <TrendChart
+                    data={progressData
+                      .filter(p => p.measurement_4 !== null)
+                      .map(p => ({ date: p.date, value: p.measurement_4! }))}
+                    label={progressData.find(p => p.measurement_4 !== null)?.measurement_4_label || 'Measurement 4'}
+                    unit="in"
+                    color="#a855f7"
                   />
                 )}
               </View>
