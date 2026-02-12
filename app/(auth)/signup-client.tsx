@@ -49,12 +49,18 @@ export default function SignupClientScreen() {
             first_name: firstName.trim(),
             last_name: lastName.trim(),
           },
+          emailRedirectTo: undefined,
         },
       });
 
       if (signUpError) throw signUpError;
 
       if (data.user) {
+        if (data.user.identities && data.user.identities.length === 0) {
+          setError('This email is already registered. Please log in instead.');
+          return;
+        }
+
         const { data: clientData, error: linkError } = await supabase.rpc(
           'link_client_to_trainer',
           {

@@ -51,12 +51,17 @@ export default function SignupTrainerScreen() {
             role: 'trainer',
             name: name.trim(),
           },
+          emailRedirectTo: undefined,
         },
       });
 
       if (signUpError) throw signUpError;
 
       if (data.user) {
+        if (data.user.identities && data.user.identities.length === 0) {
+          setError('This email is already registered. Please log in instead.');
+          return;
+        }
         router.replace('/dashboard');
       }
     } catch (err: any) {
