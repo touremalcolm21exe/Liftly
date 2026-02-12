@@ -154,11 +154,11 @@ export default function ScheduleScreen() {
     setShowSessionModal(true);
   };
 
-  const handleBookSession = async (clientId: string, clientName: string, location: string) => {
+  const handleBookSession = async (clientId: string, clientName: string, location: string, duration: number) => {
     if (!selectedSlot) return;
 
     try {
-      const endTime = calculateEndTime(selectedSlot.time, 60);
+      const endTime = calculateEndTime(selectedSlot.time, duration);
       const dateStr = selectedDate.toISOString().split('T')[0];
 
       const { error } = await supabase.from('sessions').insert({
@@ -167,7 +167,7 @@ export default function ScheduleScreen() {
         date: dateStr,
         start_time: selectedSlot.time,
         end_time: endTime,
-        duration_minutes: 60,
+        duration_minutes: duration,
         location,
         status: 'scheduled',
       });

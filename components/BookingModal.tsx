@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { X, User, MapPin, Clock, ChevronDown } from 'lucide-react-native';
+import { X, User, MapPin, Clock, ChevronDown, Timer } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 interface BookingModalProps {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (clientId: string, clientName: string, location: string) => void;
+  onConfirm: (clientId: string, clientName: string, location: string, duration: number) => void;
   selectedDate: Date;
   selectedTime: string;
   clients: Array<{ id: string; name: string }>;
@@ -16,9 +16,13 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [location, setLocation] = useState('');
+  const [duration, setDuration] = useState('60');
   const [showClientPicker, setShowClientPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [previousLocations, setPreviousLocations] = useState<string[]>([]);
+
+  const commonDurations = [30, 45, 60, 90, 120];
 
   useEffect(() => {
     if (visible) {
@@ -65,6 +69,16 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     return date.toLocaleDateString('en-US', options);
   };
 
+  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    const ampm = endHours >= 12 ? 'PM' : 'AM';
+    const displayHour = endHours % 12 || 12;
+    return `${displayHour}:${String(endMinutes).padStart(2, '0')} ${ampm}`;
+  };
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
@@ -74,11 +88,13 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   };
 
   const handleConfirm = () => {
-    if (clientId && clientName.trim() && location.trim()) {
-      onConfirm(clientId, clientName, location);
+    const durationNum = parseInt(duration);
+    if (clientId && clientName.trim() && location.trim() && durationNum > 0) {
+      onConfirm(clientId, clientName, location, durationNum);
       setClientId('');
       setClientName('');
       setLocation('');
+      setDuration('60');
     }
   };
 
@@ -91,6 +107,11 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   const handleLocationSelect = (loc: string) => {
     setLocation(loc);
     setShowLocationPicker(false);
+  };
+
+  const handleDurationSelect = (mins: number) => {
+    setDuration(mins.toString());
+    setShowDurationPicker(false);
   };
 
   return (
@@ -115,14 +136,17 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
               <View style={styles.infoText}>
                 <Text style={styles.infoLabel}>Date & Time</Text>
                 <Text style={styles.infoValue}>{formatDate(selectedDate)}</Text>
-                <Text style={styles.infoValue}>{formatTime(selectedTime)}</Text>
+                <Text style={styles.infoValue}>
+                  {formatTime(selectedTime)}
+                  {duration && parseInt(duration) > 0 && ` - ${calculateEndTime(selectedTime, parseInt(duration))}`}
+                </Text>
               </View>
             </View>
           </View>
 
           <ScrollView style={styles.form} contentContainerStyle={styles.formContent}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Client Name</Text>
+              <Text style={styles.label}>Client Name <Text style={styles.required}>*</Text></Text>
               <TouchableOpacity
                 style={styles.input}
                 onPress={() => setShowClientPicker(!showClientPicker)}
@@ -149,7 +173,61 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Location</Text>
+              <Text style={styles.label}>Duration <Text style={styles.required}>*</Text></Text>
+              <View style={styles.durationInputContainer}>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setShowDurationPicker(!showDurationPicker)}
+                >
+                  <Timer size={20} color="#5b6f92" strokeWidth={2} />
+                  <Text style={[styles.inputText, !duration && styles.placeholder]}>
+                    {duration ? `${duration} minutes` : 'Select duration'}
+                  </Text>
+                  <ChevronDown size={20} color="#5b6f92" strokeWidth={2} />
+                </TouchableOpacity>
+
+                {showDurationPicker && (
+                  <View style={styles.durationPicker}>
+                    <Text style={styles.pickerTitle}>Common Durations</Text>
+                    {commonDurations.map((mins) => (
+                      <TouchableOpacity
+                        key={mins}
+                        style={[
+                          styles.durationOption,
+                          duration === mins.toString() && styles.durationOptionSelected
+                        ]}
+                        onPress={() => handleDurationSelect(mins)}
+                      >
+                        <Text style={[
+                          styles.durationOptionText,
+                          duration === mins.toString() && styles.durationOptionTextSelected
+                        ]}>
+                          {mins} minutes
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={styles.divider} />
+                    <View style={styles.customDurationContainer}>
+                      <Text style={styles.customDurationLabel}>Custom Duration</Text>
+                      <View style={styles.customDurationInput}>
+                        <TextInput
+                          style={styles.customDurationTextInput}
+                          placeholder="Enter minutes"
+                          placeholderTextColor="#5b6f92"
+                          value={duration}
+                          onChangeText={setDuration}
+                          keyboardType="numeric"
+                          onSubmitEditing={() => setShowDurationPicker(false)}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Location <Text style={styles.required}>*</Text></Text>
               <View style={styles.locationInputContainer}>
                 <View style={styles.locationInputWrapper}>
                   <MapPin size={20} color="#5b6f92" strokeWidth={2} />
@@ -198,9 +276,9 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, (!clientId || !clientName || !location) && styles.confirmButtonDisabled]}
+              style={[styles.confirmButton, (!clientId || !clientName || !location || !duration || parseInt(duration) <= 0) && styles.confirmButtonDisabled]}
               onPress={handleConfirm}
-              disabled={!clientId || !clientName || !location}
+              disabled={!clientId || !clientName || !location || !duration || parseInt(duration) <= 0}
             >
               <Text style={styles.confirmButtonText}>Book Session</Text>
             </TouchableOpacity>
@@ -286,6 +364,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
     letterSpacing: -0.2,
+  },
+  required: {
+    color: '#ff4757',
   },
   input: {
     flexDirection: 'row',
@@ -387,6 +468,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '500',
+  },
+  durationInputContainer: {
+    position: 'relative',
+  },
+  durationPicker: {
+    marginTop: 8,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 12,
+  },
+  durationOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  durationOptionSelected: {
+    backgroundColor: 'rgba(26, 141, 255, 0.15)',
+  },
+  durationOptionText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  durationOptionTextSelected: {
+    color: '#1a8dff',
+    fontWeight: '700',
+  },
+  customDurationContainer: {
+    marginTop: 8,
+  },
+  customDurationLabel: {
+    fontSize: 12,
+    color: '#5b6f92',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+  customDurationInput: {
+    backgroundColor: '#0b0f1e',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  customDurationTextInput: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '500',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
   },
   footer: {
     flexDirection: 'row',
