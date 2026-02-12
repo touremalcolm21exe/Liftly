@@ -148,7 +148,7 @@ export default function StatsScreen() {
             <View key={stat.id} style={styles.statCard}>
               <View style={styles.statHeader}>
                 <View style={styles.iconContainer}>
-                  <Icon size={24} color="#1a8dff" strokeWidth={2} />
+                  <Icon size={20} color="#1a8dff" strokeWidth={2} />
                 </View>
                 {stat.change && (
                   <View style={[
@@ -232,12 +232,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(26, 141, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   changeBadge: {
     flexDirection: 'row',
