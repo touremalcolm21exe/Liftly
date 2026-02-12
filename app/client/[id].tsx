@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { ChevronLeft, Save, User, Mail, Phone, Globe, Plus, ChevronDown, ChevronUp, Trash2, Dumbbell, TrendingUp, MessageSquare, Send } from 'lucide-react-native';
+import { ChevronLeft, Save, User, Mail, Phone, Globe, Plus, ChevronDown, ChevronUp, Trash2, Dumbbell, TrendingUp, MessageSquare, Send, Award, Zap } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import WorkoutLogModal from '@/components/WorkoutLogModal';
 import ProgressModal from '@/components/ProgressModal';
+import PersonalRecordModal from '@/components/PersonalRecordModal';
 import TrendChart from '@/components/TrendChart';
 
 interface Client {
@@ -37,10 +38,27 @@ interface ProgressMeasurement {
   id: string;
   date: string;
   weight: number | null;
+  body_fat_percentage: number | null;
+  waist_circumference: number | null;
   measurement_1: number | null;
   measurement_1_label: string;
   measurement_2: number | null;
   measurement_2_label: string;
+  measurement_3: number | null;
+  measurement_3_label: string;
+  measurement_4: number | null;
+  measurement_4_label: string;
+  notes: string | null;
+}
+
+interface PersonalRecord {
+  id: string;
+  exercise_name: string;
+  record_type: string;
+  value: number;
+  unit: string;
+  achieved_date: string;
+  previous_value: number | null;
   notes: string | null;
 }
 
@@ -70,11 +88,16 @@ export default function ClientProfileScreen() {
   const [newNoteText, setNewNoteText] = useState('');
   const [addingNote, setAddingNote] = useState(false);
   const [deleteNoteConfirm, setDeleteNoteConfirm] = useState<string | null>(null);
+  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([]);
+  const [loadingPRs, setLoadingPRs] = useState(false);
+  const [showPRModal, setShowPRModal] = useState(false);
+  const [deletePRConfirm, setDeletePRConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     loadClient();
     loadWorkouts();
     loadProgress();
+    loadPersonalRecords();
     loadNotes();
   }, [id]);
 
@@ -171,6 +194,25 @@ export default function ClientProfileScreen() {
     }
   };
 
+  const loadPersonalRecords = async () => {
+    setLoadingPRs(true);
+    try {
+      const { data, error } = await supabase
+        .from('personal_records')
+        .select('*')
+        .eq('client_id', id)
+        .order('achieved_date', { ascending: false });
+
+      if (data) {
+        setPersonalRecords(data);
+      }
+    } catch (error) {
+      console.error('Error loading PRs:', error);
+    } finally {
+      setLoadingPRs(false);
+    }
+  };
+
   const handleAddNote = async () => {
     if (!newNoteText.trim()) return;
 
@@ -207,6 +249,22 @@ export default function ClientProfileScreen() {
       }
     } catch (error) {
       console.error('Error deleting note:', error);
+    }
+  };
+
+  const handleDeletePR = async (prId: string) => {
+    try {
+      const { error } = await supabase
+        .from('personal_records')
+        .delete()
+        .eq('id', prId);
+
+      if (!error) {
+        loadPersonalRecords();
+        setDeletePRConfirm(null);
+      }
+    } catch (error) {
+      console.error('Error deleting PR:', error);
     }
   };
 
@@ -486,6 +544,77 @@ export default function ClientProfileScreen() {
 
         <View style={styles.section}>
           <View style={styles.progressHeader}>
+            <Text style={styles.sectionLabel}>PERSONAL RECORDS</Text>
+            <TouchableOpacity
+              style={styles.logProgressButton}
+              onPress={() => setShowPRModal(true)}
+            >
+              <Plus size={18} color="#ffffff" strokeWidth={2} />
+              <Text style={styles.logProgressText}>Log PR</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingPRs ? (
+            <View style={styles.progressLoading}>
+              <ActivityIndicator size="small" color="#1a8dff" />
+            </View>
+          ) : personalRecords.length === 0 ? (
+            <View style={styles.emptyProgress}>
+              <Award size={40} color="#5b6f92" strokeWidth={2} />
+              <Text style={styles.emptyText}>No PRs recorded yet</Text>
+              <Text style={styles.emptySubtext}>Tap "Log PR" to track personal records</Text>
+            </View>
+          ) : (
+            <View style={styles.workoutsList}>
+              {personalRecords.map((pr) => {
+                const improvement = pr.previous_value
+                  ? ((pr.value - pr.previous_value) / pr.previous_value * 100).toFixed(1)
+                  : null;
+
+                return (
+                  <View key={pr.id} style={styles.prCard}>
+                    <View style={styles.prHeader}>
+                      <View style={styles.prHeaderLeft}>
+                        <Award size={20} color="#22c55e" strokeWidth={2} />
+                        <View style={styles.prInfo}>
+                          <Text style={styles.prExercise}>{pr.exercise_name}</Text>
+                          <Text style={styles.prType}>{pr.record_type}</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setDeletePRConfirm(pr.id)}
+                        style={styles.deletePRButton}
+                      >
+                        <Trash2 size={16} color="#ff4444" strokeWidth={2} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.prValueContainer}>
+                      <Text style={styles.prValue}>
+                        {pr.value} {pr.unit}
+                      </Text>
+                      {improvement && (
+                        <View style={styles.improvementBadge}>
+                          <TrendingUp size={14} color="#22c55e" strokeWidth={2} />
+                          <Text style={styles.improvementText}>+{improvement}%</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <Text style={styles.prDate}>{formatDate(pr.achieved_date)}</Text>
+
+                    {pr.notes && (
+                      <Text style={styles.prNotes}>{pr.notes}</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.progressHeader}>
             <Text style={styles.sectionLabel}>PROGRESS & MEASUREMENTS</Text>
             <TouchableOpacity
               style={styles.logProgressButton}
@@ -563,6 +692,18 @@ export default function ClientProfileScreen() {
                           <Text style={styles.measurementValueText}>{measurement.weight} lbs</Text>
                         </View>
                       )}
+                      {measurement.body_fat_percentage !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>Body Fat</Text>
+                          <Text style={styles.measurementValueText}>{measurement.body_fat_percentage}%</Text>
+                        </View>
+                      )}
+                      {measurement.waist_circumference !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>Waist</Text>
+                          <Text style={styles.measurementValueText}>{measurement.waist_circumference} in</Text>
+                        </View>
+                      )}
                       {measurement.measurement_1 !== null && (
                         <View style={styles.measurementValue}>
                           <Text style={styles.measurementValueLabel}>{measurement.measurement_1_label}</Text>
@@ -573,6 +714,18 @@ export default function ClientProfileScreen() {
                         <View style={styles.measurementValue}>
                           <Text style={styles.measurementValueLabel}>{measurement.measurement_2_label}</Text>
                           <Text style={styles.measurementValueText}>{measurement.measurement_2} in</Text>
+                        </View>
+                      )}
+                      {measurement.measurement_3 !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>{measurement.measurement_3_label}</Text>
+                          <Text style={styles.measurementValueText}>{measurement.measurement_3} in</Text>
+                        </View>
+                      )}
+                      {measurement.measurement_4 !== null && (
+                        <View style={styles.measurementValue}>
+                          <Text style={styles.measurementValueLabel}>{measurement.measurement_4_label}</Text>
+                          <Text style={styles.measurementValueText}>{measurement.measurement_4} in</Text>
                         </View>
                       )}
                     </View>
@@ -670,6 +823,13 @@ export default function ClientProfileScreen() {
         onSave={loadProgress}
       />
 
+      <PersonalRecordModal
+        visible={showPRModal}
+        clientId={id as string}
+        onClose={() => setShowPRModal(false)}
+        onSave={loadPersonalRecords}
+      />
+
       <Modal
         visible={deleteConfirm !== null}
         transparent={true}
@@ -752,6 +912,36 @@ export default function ClientProfileScreen() {
               <TouchableOpacity
                 style={styles.deleteModalConfirm}
                 onPress={() => deleteNoteConfirm && handleDeleteNote(deleteNoteConfirm)}
+              >
+                <Text style={styles.deleteModalConfirmText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deletePRConfirm !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeletePRConfirm(null)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <Text style={styles.deleteModalTitle}>Delete Personal Record?</Text>
+            <Text style={styles.deleteModalText}>
+              This will permanently delete this PR. This action cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancel}
+                onPress={() => setDeletePRConfirm(null)}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteModalConfirm}
+                onPress={() => deletePRConfirm && handleDeletePR(deletePRConfirm)}
               >
                 <Text style={styles.deleteModalConfirmText}>Delete</Text>
               </TouchableOpacity>
@@ -1239,5 +1429,82 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 22,
     letterSpacing: -0.2,
+  },
+  prCard: {
+    backgroundColor: '#050814',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    gap: 12,
+  },
+  prHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  prHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  prInfo: {
+    flex: 1,
+  },
+  prExercise: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  prType: {
+    fontSize: 13,
+    color: '#5b6f92',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  deletePRButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  prValue: {
+    fontSize: 28,
+    color: '#22c55e',
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  improvementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  improvementText: {
+    fontSize: 13,
+    color: '#22c55e',
+    fontWeight: '700',
+  },
+  prDate: {
+    fontSize: 13,
+    color: '#5b6f92',
+    fontWeight: '600',
+  },
+  prNotes: {
+    fontSize: 13,
+    color: '#5b6f92',
+    fontWeight: '500',
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 });

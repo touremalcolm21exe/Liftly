@@ -13,15 +13,21 @@ interface ProgressModalProps {
 export default function ProgressModal({ visible, clientId, onClose, onSave }: ProgressModalProps) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [weight, setWeight] = useState('');
+  const [bodyFatPercentage, setBodyFatPercentage] = useState('');
+  const [waistCircumference, setWaistCircumference] = useState('');
   const [measurement1, setMeasurement1] = useState('');
   const [measurement1Label, setMeasurement1Label] = useState('Waist');
   const [measurement2, setMeasurement2] = useState('');
   const [measurement2Label, setMeasurement2Label] = useState('Hips');
+  const [measurement3, setMeasurement3] = useState('');
+  const [measurement3Label, setMeasurement3Label] = useState('Chest');
+  const [measurement4, setMeasurement4] = useState('');
+  const [measurement4Label, setMeasurement4Label] = useState('Arms');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!weight && !measurement1 && !measurement2) {
+    if (!weight && !bodyFatPercentage && !waistCircumference && !measurement1 && !measurement2 && !measurement3 && !measurement4) {
       return;
     }
 
@@ -33,20 +39,32 @@ export default function ProgressModal({ visible, clientId, onClose, onSave }: Pr
           client_id: clientId,
           date: date,
           weight: weight ? parseFloat(weight) : null,
+          body_fat_percentage: bodyFatPercentage ? parseFloat(bodyFatPercentage) : null,
+          waist_circumference: waistCircumference ? parseFloat(waistCircumference) : null,
           measurement_1: measurement1 ? parseFloat(measurement1) : null,
           measurement_1_label: measurement1Label,
           measurement_2: measurement2 ? parseFloat(measurement2) : null,
           measurement_2_label: measurement2Label,
+          measurement_3: measurement3 ? parseFloat(measurement3) : null,
+          measurement_3_label: measurement3Label,
+          measurement_4: measurement4 ? parseFloat(measurement4) : null,
+          measurement_4_label: measurement4Label,
           notes: notes || null,
         });
 
       if (!error) {
         setDate(new Date().toISOString().split('T')[0]);
         setWeight('');
+        setBodyFatPercentage('');
+        setWaistCircumference('');
         setMeasurement1('');
         setMeasurement1Label('Waist');
         setMeasurement2('');
         setMeasurement2Label('Hips');
+        setMeasurement3('');
+        setMeasurement3Label('Chest');
+        setMeasurement4('');
+        setMeasurement4Label('Arms');
         setNotes('');
         onSave();
         onClose();
@@ -61,10 +79,16 @@ export default function ProgressModal({ visible, clientId, onClose, onSave }: Pr
   const handleClose = () => {
     setDate(new Date().toISOString().split('T')[0]);
     setWeight('');
+    setBodyFatPercentage('');
+    setWaistCircumference('');
     setMeasurement1('');
     setMeasurement1Label('Waist');
     setMeasurement2('');
     setMeasurement2Label('Hips');
+    setMeasurement3('');
+    setMeasurement3Label('Chest');
+    setMeasurement4('');
+    setMeasurement4Label('Arms');
     setNotes('');
     onClose();
   };
@@ -98,19 +122,47 @@ export default function ProgressModal({ visible, clientId, onClose, onSave }: Pr
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.label}>Weight (lbs)</Text>
-              <TextInput
-                style={styles.input}
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="e.g., 175.5"
-                placeholderTextColor="#5b6f92"
-                keyboardType="decimal-pad"
-              />
+              <Text style={styles.sectionLabel}>BODY METRICS</Text>
+
+              <View style={styles.measurementGroup}>
+                <Text style={styles.label}>Weight (lbs)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholder="e.g., 175.5"
+                  placeholderTextColor="#5b6f92"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View style={styles.measurementGroup}>
+                <Text style={styles.label}>Body Fat Percentage (%)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={bodyFatPercentage}
+                  onChangeText={setBodyFatPercentage}
+                  placeholder="e.g., 15.2"
+                  placeholderTextColor="#5b6f92"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View style={styles.measurementGroup}>
+                <Text style={styles.label}>Waist Circumference (inches)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={waistCircumference}
+                  onChangeText={setWaistCircumference}
+                  placeholder="e.g., 32.5"
+                  placeholderTextColor="#5b6f92"
+                  keyboardType="decimal-pad"
+                />
+              </View>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>MEASUREMENTS</Text>
+              <Text style={styles.sectionLabel}>ADDITIONAL MEASUREMENTS</Text>
 
               <View style={styles.measurementGroup}>
                 <Text style={styles.label}>Measurement 1</Text>
@@ -147,6 +199,48 @@ export default function ProgressModal({ visible, clientId, onClose, onSave }: Pr
                     style={[styles.input, styles.flex1]}
                     value={measurement2}
                     onChangeText={setMeasurement2}
+                    placeholder="Value (inches)"
+                    placeholderTextColor="#5b6f92"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.measurementGroup}>
+                <Text style={styles.label}>Measurement 3</Text>
+                <View style={styles.row}>
+                  <TextInput
+                    style={[styles.input, styles.flex1]}
+                    value={measurement3Label}
+                    onChangeText={setMeasurement3Label}
+                    placeholder="Label (e.g., Chest)"
+                    placeholderTextColor="#5b6f92"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.flex1]}
+                    value={measurement3}
+                    onChangeText={setMeasurement3}
+                    placeholder="Value (inches)"
+                    placeholderTextColor="#5b6f92"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.measurementGroup}>
+                <Text style={styles.label}>Measurement 4</Text>
+                <View style={styles.row}>
+                  <TextInput
+                    style={[styles.input, styles.flex1]}
+                    value={measurement4Label}
+                    onChangeText={setMeasurement4Label}
+                    placeholder="Label (e.g., Arms)"
+                    placeholderTextColor="#5b6f92"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.flex1]}
+                    value={measurement4}
+                    onChangeText={setMeasurement4}
                     placeholder="Value (inches)"
                     placeholderTextColor="#5b6f92"
                     keyboardType="decimal-pad"
