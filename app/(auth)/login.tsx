@@ -36,7 +36,13 @@ export default function LoginScreen() {
         password,
       });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        // Provide helpful error messages for common issues
+        if (signInError.message.includes('Email not confirmed')) {
+          throw new Error('Your email is not confirmed. Please contact support or try signing up again.');
+        }
+        throw signInError;
+      }
 
       if (data.user) {
         const role = data.user.user_metadata?.role;
