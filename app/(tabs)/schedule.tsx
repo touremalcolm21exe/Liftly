@@ -1,55 +1,39 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Plus } from 'lucide-react-native';
-import Calendar from '@/components/Calendar';
-import DailyTimeSlots from '@/components/DailyTimeSlots';
-import BookingModal from '@/components/BookingModal';
-import SessionDetailsModal from '@/components/SessionDetailsModal';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-
-interface Session {
-  id: string;
-  client_name: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
-  status: string;
-}
 
 interface Client {
   id: string;
   name: string;
 }
 
-interface TimeSlot {
-  time: string;
-  available: boolean;
-  session?: Session;
-}
-
 export default function ScheduleScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:00');
+  const [sessionName, setSessionName] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [location, setLocation] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
-  const [sessionsMap, setSessionsMap] = useState<Map<string, number>>(new Map());
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [showClientPicker, setShowClientPicker] = useState(false);
+  const [startTimeError, setStartTimeError] = useState('');
+  const [endTimeError, setEndTimeError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [showSessionModal, setShowSessionModal] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [viewMode, setViewMode] = useState<'calendar' | 'daily'>('calendar');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadClients();
 
-  useEffect(() => {
-    generateTimeSlots();
-  }, [selectedDate, sessions]);
+    if (params.date) {
+      const dateParam = Array.isArray(params.date) ? params.date[0] : params.date;
+      setSelectedDate(new Date(dateParam + 'T00:00:00'));
+    }
+  }, [params.date]);
 
-  const loadData = async () => {
+  const loadClients = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -76,139 +60,167 @@ export default function ScheduleScreen() {
 
       if (clientsList) {
         setClients(clientsList);
-
-        const clientIds = clientsList.map(c => c.id);
-
-        if (clientIds.length > 0) {
-          const { data: sessionsList } = await supabase
-            .from('sessions')
-            .select('*')
-            .in('client_id', clientIds)
-            .eq('status', 'scheduled');
-
-          if (sessionsList) {
-            setSessions(sessionsList);
-            updateSessionsMap(sessionsList);
-          }
-        }
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading clients:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateSessionsMap = (sessionsList: Session[]) => {
-    const map = new Map<string, number>();
-    sessionsList.forEach((session) => {
-      const count = map.get(session.date) || 0;
-      map.set(session.date, count + 1);
-    });
-    setSessionsMap(map);
-  };
+  const formatDateDisplay = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const generateTimeSlots = () => {
-    const slots: TimeSlot[] = [];
-    const selectedDateStr = selectedDate.toISOString().split('T')[0];
-    const daysSessions = sessions.filter((s) => s.date === selectedDateStr);
+    const isToday = date.toDateString() === today.toDateString();
+    const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-    const businessHours = [];
-    for (let hour = 4; hour <= 23; hour++) {
-      businessHours.push(`${String(hour).padStart(2, '0')}:00:00`);
-      businessHours.push(`${String(hour).padStart(2, '0')}:30:00`);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    const dayNum = date.getDate();
+
+    if (isToday) {
+      return `Today – ${dayName}, ${monthName} ${dayNum}`;
+    } else if (isTomorrow) {
+      return `Tomorrow – ${dayName}, ${monthName} ${dayNum}`;
+    } else {
+      return `${dayName}, ${monthName} ${dayNum}`;
     }
-    businessHours.push('00:00:00');
-
-    businessHours.forEach((time) => {
-      const existingSession = daysSessions.find((s) => s.start_time === time);
-      if (existingSession) {
-        slots.push({
-          time,
-          available: false,
-          session: existingSession,
-        });
-      } else {
-        slots.push({
-          time,
-          available: true,
-        });
-      }
-    });
-
-    setTimeSlots(slots);
   };
 
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    setViewMode('daily');
+  const validateTimeFormat = (time: string): boolean => {
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    return timeRegex.test(time);
   };
 
-  const handleSlotPress = (slot: TimeSlot) => {
-    setSelectedSlot(slot);
-    setShowBookingModal(true);
+  const parseTime = (time: string): { hours: number; minutes: number } | null => {
+    if (!validateTimeFormat(time)) return null;
+    const [hours, minutes] = time.split(':').map(Number);
+    return { hours, minutes };
   };
 
-  const handleSessionPress = (session: Session) => {
-    setSelectedSession(session);
-    setShowSessionModal(true);
+  const handleStartTimeChange = (text: string) => {
+    setStartTime(text);
+    setStartTimeError('');
   };
 
-  const handleBookSession = async (clientId: string, clientName: string, location: string, duration: number, startTime?: string) => {
-    if (!selectedSlot && !startTime) return;
+  const handleEndTimeChange = (text: string) => {
+    setEndTime(text);
+    setEndTimeError('');
+  };
 
+  const handleStartTimeBlur = () => {
+    if (startTime && !validateTimeFormat(startTime)) {
+      setStartTimeError('Invalid format. Use HH:MM (e.g., 09:00)');
+    }
+  };
+
+  const handleEndTimeBlur = () => {
+    if (endTime && !validateTimeFormat(endTime)) {
+      setEndTimeError('Invalid format. Use HH:MM (e.g., 18:30)');
+    }
+  };
+
+  const calculateDuration = (): number | null => {
+    const start = parseTime(startTime);
+    const end = parseTime(endTime);
+
+    if (!start || !end) return null;
+
+    const startMinutes = start.hours * 60 + start.minutes;
+    const endMinutes = end.hours * 60 + end.minutes;
+    let duration = endMinutes - startMinutes;
+
+    if (duration < 0) {
+      duration += 24 * 60;
+    }
+
+    return duration;
+  };
+
+  const calculateEndTime = (startTimeStr: string, durationMinutes: number): string => {
+    const [hours, minutes] = startTimeStr.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMinutes = totalMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}:00`;
+  };
+
+  const handleSave = async () => {
+    let hasError = false;
+
+    if (!validateTimeFormat(startTime)) {
+      setStartTimeError('Invalid format. Use HH:MM (e.g., 09:00)');
+      hasError = true;
+    }
+
+    if (!validateTimeFormat(endTime)) {
+      setEndTimeError('Invalid format. Use HH:MM (e.g., 18:30)');
+      hasError = true;
+    }
+
+    if (hasError || !clientId || !location.trim()) return;
+
+    const duration = calculateDuration();
+    if (duration === null || duration <= 0) {
+      setEndTimeError('End time must be after start time');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const sessionStartTime = startTime || selectedSlot?.time || '';
-      const endTime = calculateEndTime(sessionStartTime, duration);
+      const formattedTime = `${startTime}:00`;
+      const endTimeFormatted = calculateEndTime(startTime, duration);
       const dateStr = selectedDate.toISOString().split('T')[0];
+      const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
 
       const { error } = await supabase.from('sessions').insert({
         client_id: clientId,
-        client_name: clientName,
+        client_name: finalName,
         date: dateStr,
-        start_time: sessionStartTime,
-        end_time: endTime,
+        start_time: formattedTime,
+        end_time: endTimeFormatted,
         duration_minutes: duration,
         location,
         status: 'scheduled',
       });
 
       if (!error) {
-        await loadData();
-        setShowBookingModal(false);
-        setSelectedSlot(null);
+        resetForm();
+        router.back();
       }
     } catch (error) {
-      console.error('Error booking session:', error);
+      console.error('Error saving session:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleCancelSession = async (sessionId: string) => {
-    try {
-      const { error } = await supabase
-        .from('sessions')
-        .update({ status: 'cancelled' })
-        .eq('id', sessionId);
+  const handleCancel = () => {
+    resetForm();
+    router.back();
+  };
 
-      if (!error) {
-        await loadData();
-      }
-    } catch (error) {
-      console.error('Error canceling session:', error);
+  const resetForm = () => {
+    setSessionName('');
+    setClientId('');
+    setLocation('');
+    setShowClientPicker(false);
+    setStartTimeError('');
+    setEndTimeError('');
+  };
+
+  const handleClientSelect = (id: string) => {
+    setClientId(id);
+    const client = clients.find(c => c.id === id);
+    if (client && !sessionName) {
+      setSessionName(`Session with ${client.name}`);
     }
+    setShowClientPicker(false);
   };
 
-  const handleRescheduleSession = (sessionId: string) => {
-    setShowSessionModal(false);
-  };
-
-  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + durationMinutes;
-    const endHours = Math.floor(totalMinutes / 60);
-    const endMinutes = totalMinutes % 60;
-    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}:00`;
-  };
+  const isFormValid = clientId && location.trim() && validateTimeFormat(startTime) && validateTimeFormat(endTime);
 
   if (loading) {
     return (
@@ -221,60 +233,118 @@ export default function ScheduleScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Schedule</Text>
-        {viewMode === 'daily' && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => setViewMode('calendar')}
-          >
-            <Text style={styles.backButtonText}>Calendar</Text>
-          </TouchableOpacity>
-        )}
+        <Text style={styles.headerTitle}>Schedule</Text>
+        <Text style={styles.dateDisplay}>{formatDateDisplay(selectedDate)}</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {viewMode === 'calendar' ? (
-          <Calendar
-            selectedDate={selectedDate}
-            onDateSelect={handleDateSelect}
-            onMonthChange={setSelectedDate}
-            sessionsMap={sessionsMap}
+      <ScrollView style={styles.contentSection} showsVerticalScrollIndicator={false}>
+        <View style={styles.inputGroup}>
+          <TextInput
+            style={styles.sessionNameInput}
+            placeholder="Session name"
+            placeholderTextColor="#5b6f92"
+            value={sessionName}
+            onChangeText={setSessionName}
           />
-        ) : (
-          <DailyTimeSlots
-            selectedDate={selectedDate}
-            timeSlots={timeSlots}
-            onSlotPress={handleSlotPress}
-            onSessionPress={handleSessionPress}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>Client</Text>
+          <TouchableOpacity
+            style={styles.selectButton}
+            onPress={() => setShowClientPicker(!showClientPicker)}
+          >
+            <Text style={[
+              styles.selectButtonText,
+              !clientId && styles.selectButtonPlaceholder
+            ]}>
+              {clientId ? clients.find(c => c.id === clientId)?.name : 'Select client'}
+            </Text>
+          </TouchableOpacity>
+
+          {showClientPicker && (
+            <View style={styles.pickerDropdown}>
+              {clients.map((client) => (
+                <TouchableOpacity
+                  key={client.id}
+                  style={styles.pickerOption}
+                  onPress={() => handleClientSelect(client.id)}
+                >
+                  <Text style={styles.pickerOptionText}>{client.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>Location</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Enter location"
+            placeholderTextColor="#5b6f92"
+            value={location}
+            onChangeText={setLocation}
           />
-        )}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>Start time</Text>
+          <TextInput
+            style={[styles.timeInput, startTimeError && styles.timeInputError]}
+            placeholder="09:00"
+            placeholderTextColor="#5b6f92"
+            value={startTime}
+            onChangeText={handleStartTimeChange}
+            onBlur={handleStartTimeBlur}
+            keyboardType="numbers-and-punctuation"
+            maxLength={5}
+          />
+          {startTimeError ? (
+            <Text style={styles.errorText}>{startTimeError}</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>End time</Text>
+          <TextInput
+            style={[styles.timeInput, endTimeError && styles.timeInputError]}
+            placeholder="18:30"
+            placeholderTextColor="#5b6f92"
+            value={endTime}
+            onChangeText={handleEndTimeChange}
+            onBlur={handleEndTimeBlur}
+            keyboardType="numbers-and-punctuation"
+            maxLength={5}
+          />
+          {endTimeError ? (
+            <Text style={styles.errorText}>{endTimeError}</Text>
+          ) : null}
+        </View>
       </ScrollView>
 
-      <BookingModal
-        visible={showBookingModal}
-        onClose={() => {
-          setShowBookingModal(false);
-          setSelectedSlot(null);
-        }}
-        onConfirm={handleBookSession}
-        selectedDate={selectedDate}
-        selectedTime={selectedSlot?.time || ''}
-        clients={clients}
-      />
-
-      <SessionDetailsModal
-        visible={showSessionModal}
-        onClose={() => {
-          setShowSessionModal(false);
-          setSelectedSession(null);
-        }}
-        session={selectedSession}
-        onReschedule={handleRescheduleSession}
-        onCancel={handleCancelSession}
-      />
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleCancel}
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.saveButton,
+            (!isFormValid || saving) && styles.saveButtonDisabled
+          ]}
+          onPress={handleSave}
+          disabled={!isFormValid || saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -290,34 +360,147 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingHorizontal: 20,
     paddingBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  title: {
-    fontSize: 32,
+  headerTitle: {
+    fontSize: 28,
     color: '#ffffff',
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    fontWeight: '600',
+    marginBottom: 8,
   },
-  backButton: {
-    backgroundColor: '#1a8dff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+  dateDisplay: {
+    fontSize: 16,
+    color: '#9ca3af',
+    fontWeight: '500',
   },
-  backButtonText: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  content: {
+  contentSection: {
     flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+  inputGroup: {
+    marginBottom: 24,
+  },
+  sessionNameInput: {
+    fontSize: 20,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  selectButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  selectButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '400',
+  },
+  selectButtonPlaceholder: {
+    color: '#5b6f92',
+  },
+  pickerDropdown: {
+    marginTop: 8,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+  },
+  pickerOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '400',
+  },
+  textInput: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  timeInput: {
+    fontSize: 20,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  timeInputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#ef4444',
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 16,
+    padding: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+  },
+  cancelButtonText: {
+    fontSize: 17,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a8dff',
+    borderRadius: 28,
+  },
+  saveButtonDisabled: {
+    backgroundColor: 'rgba(26, 141, 255, 0.3)',
+  },
+  saveButtonText: {
+    fontSize: 17,
+    color: '#ffffff',
+    fontWeight: '600',
   },
 });
