@@ -176,7 +176,7 @@ export default function HomeScreen() {
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/clients')}
+            onPress={() => router.push('/workouts')}
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
