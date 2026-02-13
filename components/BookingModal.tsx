@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
@@ -13,25 +13,27 @@ interface BookingModalProps {
 }
 
 export default function BookingModal({ visible, onClose, onConfirm, selectedDate, selectedTime, clients }: BookingModalProps) {
-  const [hour, setHour] = useState(9);
-  const [minute, setMinute] = useState(0);
+  const [startHour, setStartHour] = useState(9);
+  const [startMinute, setStartMinute] = useState(0);
+  const [endHour, setEndHour] = useState(10);
+  const [endMinute, setEndMinute] = useState(0);
   const [sessionName, setSessionName] = useState('');
   const [clientId, setClientId] = useState('');
   const [location, setLocation] = useState('');
-  const [duration, setDuration] = useState(60);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const [clientReminder, setClientReminder] = useState(true);
   const [showClientPicker, setShowClientPicker] = useState(false);
 
-  const hourScrollRef = useRef<ScrollView>(null);
-  const minuteScrollRef = useRef<ScrollView>(null);
+  const startHourScrollRef = useRef<ScrollView>(null);
+  const startMinuteScrollRef = useRef<ScrollView>(null);
+  const endHourScrollRef = useRef<ScrollView>(null);
+  const endMinuteScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (visible && selectedTime) {
       const [hours, minutes] = selectedTime.split(':').map(Number);
-      setHour(hours);
-      setMinute(minutes);
+      setStartHour(hours);
+      setStartMinute(minutes);
+      setEndHour((hours + 1) % 24);
+      setEndMinute(minutes);
     }
   }, [visible, selectedTime]);
 
@@ -56,11 +58,24 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     }
   };
 
+  const calculateDuration = () => {
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+    let duration = endMinutes - startMinutes;
+
+    if (duration < 0) {
+      duration += 24 * 60;
+    }
+
+    return duration;
+  };
+
   const handleConfirm = () => {
     if (!clientId || !location.trim()) return;
 
-    const formattedTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+    const formattedTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00`;
     const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
+    const duration = calculateDuration();
 
     onConfirm(clientId, finalName, location, duration, formattedTime);
     resetForm();
@@ -75,10 +90,6 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     setSessionName('');
     setClientId('');
     setLocation('');
-    setDuration(60);
-    setSoundEnabled(true);
-    setVibrationEnabled(true);
-    setClientReminder(true);
     setShowClientPicker(false);
   };
 
@@ -94,6 +105,41 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
+  const TimePickerColumn = ({
+    value,
+    onValueChange,
+    items,
+    scrollRef
+  }: {
+    value: number;
+    onValueChange: (val: number) => void;
+    items: number[];
+    scrollRef: React.RefObject<ScrollView | null>;
+  }) => (
+    <ScrollView
+      ref={scrollRef}
+      showsVerticalScrollIndicator={false}
+      snapToInterval={60}
+      decelerationRate="fast"
+      contentContainerStyle={styles.scrollContent}
+    >
+      {items.map((item) => (
+        <TouchableOpacity
+          key={item}
+          style={styles.timeItem}
+          onPress={() => onValueChange(item)}
+        >
+          <Text style={[
+            styles.timeText,
+            item === value && styles.timeTextSelected
+          ]}>
+            {String(item).padStart(2, '0')}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -103,61 +149,12 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
-          <View style={styles.timePickerSection}>
-            <View style={styles.timeDisplay}>
-              <ScrollView
-                ref={hourScrollRef}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={80}
-                decelerationRate="fast"
-                contentContainerStyle={styles.scrollContent}
-              >
-                {hours.map((h) => (
-                  <TouchableOpacity
-                    key={h}
-                    style={styles.timeItem}
-                    onPress={() => setHour(h)}
-                  >
-                    <Text style={[
-                      styles.timeText,
-                      h === hour && styles.timeTextSelected
-                    ]}>
-                      {String(h).padStart(2, '0')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <Text style={styles.timeSeparator}>:</Text>
-
-              <ScrollView
-                ref={minuteScrollRef}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={80}
-                decelerationRate="fast"
-                contentContainerStyle={styles.scrollContent}
-              >
-                {minutes.map((m) => (
-                  <TouchableOpacity
-                    key={m}
-                    style={styles.timeItem}
-                    onPress={() => setMinute(m)}
-                  >
-                    <Text style={[
-                      styles.timeText,
-                      m === minute && styles.timeTextSelected
-                    ]}>
-                      {String(m).padStart(2, '0')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>New Session</Text>
             <Text style={styles.dateDisplay}>{formatDateDisplay(selectedDate)}</Text>
           </View>
 
-          <ScrollView style={styles.contentSection}>
+          <ScrollView style={styles.contentSection} showsVerticalScrollIndicator={false}>
             <View style={styles.inputGroup}>
               <TextInput
                 style={styles.sessionNameInput}
@@ -208,57 +205,40 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.fieldLabel}>Duration (minutes)</Text>
-              <View style={styles.durationButtons}>
-                {[30, 45, 60, 90].map((d) => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[
-                      styles.durationButton,
-                      duration === d && styles.durationButtonSelected
-                    ]}
-                    onPress={() => setDuration(d)}
-                  >
-                    <Text style={[
-                      styles.durationButtonText,
-                      duration === d && styles.durationButtonTextSelected
-                    ]}>
-                      {d}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            <View style={styles.timePickerGroup}>
+              <Text style={styles.fieldLabel}>Start time</Text>
+              <View style={styles.timePickerContainer}>
+                <TimePickerColumn
+                  value={startHour}
+                  onValueChange={setStartHour}
+                  items={hours}
+                  scrollRef={startHourScrollRef}
+                />
+                <Text style={styles.timePickerSeparator}>:</Text>
+                <TimePickerColumn
+                  value={startMinute}
+                  onValueChange={setStartMinute}
+                  items={minutes}
+                  scrollRef={startMinuteScrollRef}
+                />
               </View>
             </View>
 
-            <View style={styles.toggleSection}>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>Sound</Text>
-                <Switch
-                  value={soundEnabled}
-                  onValueChange={setSoundEnabled}
-                  trackColor={{ false: '#1a1f2e', true: '#1a8dff' }}
-                  thumbColor="#ffffff"
+            <View style={styles.timePickerGroup}>
+              <Text style={styles.fieldLabel}>End time</Text>
+              <View style={styles.timePickerContainer}>
+                <TimePickerColumn
+                  value={endHour}
+                  onValueChange={setEndHour}
+                  items={hours}
+                  scrollRef={endHourScrollRef}
                 />
-              </View>
-
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>Vibrate</Text>
-                <Switch
-                  value={vibrationEnabled}
-                  onValueChange={setVibrationEnabled}
-                  trackColor={{ false: '#1a1f2e', true: '#1a8dff' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>Remind client</Text>
-                <Switch
-                  value={clientReminder}
-                  onValueChange={setClientReminder}
-                  trackColor={{ false: '#1a1f2e', true: '#1a8dff' }}
-                  thumbColor="#ffffff"
+                <Text style={styles.timePickerSeparator}>:</Text>
+                <TimePickerColumn
+                  value={endMinute}
+                  onValueChange={setEndMinute}
+                  items={minutes}
+                  scrollRef={endMinuteScrollRef}
                 />
               </View>
             </View>
@@ -303,45 +283,18 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
   },
-  timePickerSection: {
-    paddingTop: 48,
-    paddingBottom: 32,
+  header: {
+    paddingTop: 32,
+    paddingBottom: 24,
     paddingHorizontal: 24,
-    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  timeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 240,
-    marginBottom: 16,
-  },
-  scrollContent: {
-    paddingVertical: 80,
-  },
-  timeItem: {
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  timeText: {
-    fontSize: 56,
-    color: '#2a3448',
-    fontWeight: '300',
-  },
-  timeTextSelected: {
-    fontSize: 72,
+  headerTitle: {
+    fontSize: 28,
     color: '#ffffff',
-    fontWeight: '300',
-  },
-  timeSeparator: {
-    fontSize: 72,
-    color: '#ffffff',
-    fontWeight: '300',
-    marginHorizontal: 8,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   dateDisplay: {
     fontSize: 16,
@@ -419,49 +372,44 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  durationButtons: {
-    flexDirection: 'row',
-    gap: 12,
+  timePickerGroup: {
+    marginBottom: 24,
   },
-  durationButton: {
-    flex: 1,
-    paddingVertical: 16,
+  timePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 180,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 20,
+  },
+  scrollContent: {
+    paddingVertical: 60,
+  },
+  timeItem: {
+    height: 60,
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  durationButtonSelected: {
-    backgroundColor: 'rgba(26, 141, 255, 0.15)',
-    borderColor: '#1a8dff',
-  },
-  durationButtonText: {
-    fontSize: 16,
-    color: '#9ca3af',
-    fontWeight: '500',
-  },
-  durationButtonTextSelected: {
-    color: '#1a8dff',
-    fontWeight: '600',
-  },
-  toggleSection: {
-    gap: 8,
-    marginTop: 8,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
   },
-  toggleLabel: {
-    fontSize: 16,
+  timeText: {
+    fontSize: 40,
+    color: '#2a3448',
+    fontWeight: '300',
+  },
+  timeTextSelected: {
+    fontSize: 52,
     color: '#ffffff',
-    fontWeight: '400',
+    fontWeight: '300',
+  },
+  timePickerSeparator: {
+    fontSize: 52,
+    color: '#ffffff',
+    fontWeight: '300',
+    marginHorizontal: 8,
   },
   actionButtons: {
     flexDirection: 'row',
