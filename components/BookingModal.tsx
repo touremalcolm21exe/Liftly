@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -13,27 +13,21 @@ interface BookingModalProps {
 }
 
 export default function BookingModal({ visible, onClose, onConfirm, selectedDate, selectedTime, clients }: BookingModalProps) {
-  const [startHour, setStartHour] = useState(9);
-  const [startMinute, setStartMinute] = useState(0);
-  const [endHour, setEndHour] = useState(10);
-  const [endMinute, setEndMinute] = useState(0);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:00');
   const [sessionName, setSessionName] = useState('');
   const [clientId, setClientId] = useState('');
   const [location, setLocation] = useState('');
   const [showClientPicker, setShowClientPicker] = useState(false);
-
-  const startHourScrollRef = useRef<ScrollView>(null);
-  const startMinuteScrollRef = useRef<ScrollView>(null);
-  const endHourScrollRef = useRef<ScrollView>(null);
-  const endMinuteScrollRef = useRef<ScrollView>(null);
+  const [startTimeError, setStartTimeError] = useState('');
+  const [endTimeError, setEndTimeError] = useState('');
 
   useEffect(() => {
     if (visible && selectedTime) {
       const [hours, minutes] = selectedTime.split(':').map(Number);
-      setStartHour(hours);
-      setStartMinute(minutes);
-      setEndHour((hours + 1) % 24);
-      setEndMinute(minutes);
+      setStartTime(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+      const endHour = (hours + 1) % 24;
+      setEndTime(`${String(endHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
     }
   }, [visible, selectedTime]);
 
@@ -58,9 +52,47 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     }
   };
 
-  const calculateDuration = () => {
-    const startMinutes = startHour * 60 + startMinute;
-    const endMinutes = endHour * 60 + endMinute;
+  const validateTimeFormat = (time: string): boolean => {
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    return timeRegex.test(time);
+  };
+
+  const parseTime = (time: string): { hours: number; minutes: number } | null => {
+    if (!validateTimeFormat(time)) return null;
+    const [hours, minutes] = time.split(':').map(Number);
+    return { hours, minutes };
+  };
+
+  const handleStartTimeChange = (text: string) => {
+    setStartTime(text);
+    setStartTimeError('');
+  };
+
+  const handleEndTimeChange = (text: string) => {
+    setEndTime(text);
+    setEndTimeError('');
+  };
+
+  const handleStartTimeBlur = () => {
+    if (startTime && !validateTimeFormat(startTime)) {
+      setStartTimeError('Invalid format. Use HH:MM (e.g., 09:00)');
+    }
+  };
+
+  const handleEndTimeBlur = () => {
+    if (endTime && !validateTimeFormat(endTime)) {
+      setEndTimeError('Invalid format. Use HH:MM (e.g., 18:30)');
+    }
+  };
+
+  const calculateDuration = (): number | null => {
+    const start = parseTime(startTime);
+    const end = parseTime(endTime);
+
+    if (!start || !end) return null;
+
+    const startMinutes = start.hours * 60 + start.minutes;
+    const endMinutes = end.hours * 60 + end.minutes;
     let duration = endMinutes - startMinutes;
 
     if (duration < 0) {
@@ -71,11 +103,28 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
   };
 
   const handleConfirm = () => {
-    if (!clientId || !location.trim()) return;
+    let hasError = false;
 
-    const formattedTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00`;
-    const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
+    if (!validateTimeFormat(startTime)) {
+      setStartTimeError('Invalid format. Use HH:MM (e.g., 09:00)');
+      hasError = true;
+    }
+
+    if (!validateTimeFormat(endTime)) {
+      setEndTimeError('Invalid format. Use HH:MM (e.g., 18:30)');
+      hasError = true;
+    }
+
+    if (hasError || !clientId || !location.trim()) return;
+
     const duration = calculateDuration();
+    if (duration === null || duration <= 0) {
+      setEndTimeError('End time must be after start time');
+      return;
+    }
+
+    const formattedTime = `${startTime}:00`;
+    const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
 
     onConfirm(clientId, finalName, location, duration, formattedTime);
     resetForm();
@@ -91,6 +140,8 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     setClientId('');
     setLocation('');
     setShowClientPicker(false);
+    setStartTimeError('');
+    setEndTimeError('');
   };
 
   const handleClientSelect = (id: string) => {
@@ -102,43 +153,7 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
     setShowClientPicker(false);
   };
 
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = Array.from({ length: 60 }, (_, i) => i);
-
-  const TimePickerColumn = ({
-    value,
-    onValueChange,
-    items,
-    scrollRef
-  }: {
-    value: number;
-    onValueChange: (val: number) => void;
-    items: number[];
-    scrollRef: React.RefObject<ScrollView | null>;
-  }) => (
-    <ScrollView
-      ref={scrollRef}
-      showsVerticalScrollIndicator={false}
-      snapToInterval={60}
-      decelerationRate="fast"
-      contentContainerStyle={styles.scrollContent}
-    >
-      {items.map((item) => (
-        <TouchableOpacity
-          key={item}
-          style={styles.timeItem}
-          onPress={() => onValueChange(item)}
-        >
-          <Text style={[
-            styles.timeText,
-            item === value && styles.timeTextSelected
-          ]}>
-            {String(item).padStart(2, '0')}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
+  const isFormValid = clientId && location.trim() && validateTimeFormat(startTime) && validateTimeFormat(endTime);
 
   return (
     <Modal
@@ -205,42 +220,38 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
               />
             </View>
 
-            <View style={styles.timePickerGroup}>
+            <View style={styles.inputGroup}>
               <Text style={styles.fieldLabel}>Start time</Text>
-              <View style={styles.timePickerContainer}>
-                <TimePickerColumn
-                  value={startHour}
-                  onValueChange={setStartHour}
-                  items={hours}
-                  scrollRef={startHourScrollRef}
-                />
-                <Text style={styles.timePickerSeparator}>:</Text>
-                <TimePickerColumn
-                  value={startMinute}
-                  onValueChange={setStartMinute}
-                  items={minutes}
-                  scrollRef={startMinuteScrollRef}
-                />
-              </View>
+              <TextInput
+                style={[styles.timeInput, startTimeError && styles.timeInputError]}
+                placeholder="09:00"
+                placeholderTextColor="#5b6f92"
+                value={startTime}
+                onChangeText={handleStartTimeChange}
+                onBlur={handleStartTimeBlur}
+                keyboardType="numbers-and-punctuation"
+                maxLength={5}
+              />
+              {startTimeError ? (
+                <Text style={styles.errorText}>{startTimeError}</Text>
+              ) : null}
             </View>
 
-            <View style={styles.timePickerGroup}>
+            <View style={styles.inputGroup}>
               <Text style={styles.fieldLabel}>End time</Text>
-              <View style={styles.timePickerContainer}>
-                <TimePickerColumn
-                  value={endHour}
-                  onValueChange={setEndHour}
-                  items={hours}
-                  scrollRef={endHourScrollRef}
-                />
-                <Text style={styles.timePickerSeparator}>:</Text>
-                <TimePickerColumn
-                  value={endMinute}
-                  onValueChange={setEndMinute}
-                  items={minutes}
-                  scrollRef={endMinuteScrollRef}
-                />
-              </View>
+              <TextInput
+                style={[styles.timeInput, endTimeError && styles.timeInputError]}
+                placeholder="18:30"
+                placeholderTextColor="#5b6f92"
+                value={endTime}
+                onChangeText={handleEndTimeChange}
+                onBlur={handleEndTimeBlur}
+                keyboardType="numbers-and-punctuation"
+                maxLength={5}
+              />
+              {endTimeError ? (
+                <Text style={styles.errorText}>{endTimeError}</Text>
+              ) : null}
             </View>
           </ScrollView>
 
@@ -254,10 +265,10 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
             <TouchableOpacity
               style={[
                 styles.saveButton,
-                (!clientId || !location.trim()) && styles.saveButtonDisabled
+                !isFormValid && styles.saveButtonDisabled
               ]}
               onPress={handleConfirm}
-              disabled={!clientId || !location.trim()}
+              disabled={!isFormValid}
             >
               <Text style={styles.saveButtonText}>Save</Text>
             </TouchableOpacity>
@@ -372,44 +383,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  timePickerGroup: {
-    marginBottom: 24,
-  },
-  timePickerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 180,
+  timeInput: {
+    fontSize: 20,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 20,
   },
-  scrollContent: {
-    paddingVertical: 60,
+  timeInputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
   },
-  timeItem: {
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  timeText: {
-    fontSize: 40,
-    color: '#2a3448',
-    fontWeight: '300',
-  },
-  timeTextSelected: {
-    fontSize: 52,
-    color: '#ffffff',
-    fontWeight: '300',
-  },
-  timePickerSeparator: {
-    fontSize: 52,
-    color: '#ffffff',
-    fontWeight: '300',
-    marginHorizontal: 8,
+  errorText: {
+    fontSize: 13,
+    color: '#ef4444',
+    marginTop: 8,
+    marginLeft: 4,
   },
   actionButtons: {
     flexDirection: 'row',
