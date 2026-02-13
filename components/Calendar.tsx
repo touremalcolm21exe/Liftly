@@ -84,11 +84,8 @@ export default function Calendar({ selectedDate, onDateSelect, onMonthChange, se
           ]}>
             {day}
           </Text>
-          {hasSession && (
-            <View style={[
-              styles.sessionIndicator,
-              isSelectedDay && styles.sessionIndicatorSelected
-            ]} />
+          {hasSession && !isSelectedDay && (
+            <View style={styles.sessionIndicatorBar} />
           )}
         </TouchableOpacity>
       );
@@ -210,15 +207,13 @@ const styles = StyleSheet.create({
     color: '#1a8dff',
     fontWeight: '700',
   },
-  sessionIndicator: {
+  sessionIndicatorBar: {
     position: 'absolute',
-    bottom: 6,
-    width: 5,
-    height: 5,
-    borderRadius: 0,
+    bottom: 4,
+    left: 8,
+    right: 8,
+    height: 3,
+    borderRadius: 1.5,
     backgroundColor: '#1a8dff',
-  },
-  sessionIndicatorSelected: {
-    backgroundColor: '#ffffff',
   },
 });
