@@ -1,171 +1,196 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { X, User, MapPin, Clock, ChevronDown, Timer } from 'lucide-react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Switch } from 'react-native';
+import { X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 interface BookingModalProps {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (clientId: string, clientName: string, location: string, duration: number) => void;
+  onConfirm: (clientId: string, clientName: string, location: string, duration: number, startTime?: string) => void;
   selectedDate: Date;
   selectedTime: string;
   clients: Array<{ id: string; name: string }>;
 }
 
 export default function BookingModal({ visible, onClose, onConfirm, selectedDate, selectedTime, clients }: BookingModalProps) {
+  const [hour, setHour] = useState(9);
+  const [minute, setMinute] = useState(0);
+  const [sessionName, setSessionName] = useState('');
   const [clientId, setClientId] = useState('');
-  const [clientName, setClientName] = useState('');
   const [location, setLocation] = useState('');
-  const [duration, setDuration] = useState('60');
+  const [duration, setDuration] = useState(60);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const [clientReminder, setClientReminder] = useState(true);
   const [showClientPicker, setShowClientPicker] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [showDurationPicker, setShowDurationPicker] = useState(false);
-  const [previousLocations, setPreviousLocations] = useState<string[]>([]);
 
-  const commonDurations = [30, 45, 60, 90, 120];
+  const hourScrollRef = useRef<ScrollView>(null);
+  const minuteScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    if (visible) {
-      loadPreviousLocations();
+    if (visible && selectedTime) {
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      setHour(hours);
+      setMinute(minutes);
     }
-  }, [visible]);
+  }, [visible, selectedTime]);
 
-  const loadPreviousLocations = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const formatDateDisplay = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const { data: trainer } = await supabase
-      .from('trainers')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const isToday = date.toDateString() === today.toDateString();
+    const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-    if (!trainer) return;
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    const dayNum = date.getDate();
 
-    const { data: trainerClients } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('trainer_id', trainer.id);
-
-    if (!trainerClients || trainerClients.length === 0) return;
-
-    const clientIds = trainerClients.map(c => c.id);
-
-    const { data: sessions } = await supabase
-      .from('sessions')
-      .select('location')
-      .in('client_id', clientIds)
-      .not('location', 'is', null)
-      .order('created_at', { ascending: false });
-
-    if (sessions) {
-      const uniqueLocations = Array.from(new Set(sessions.map(s => s.location).filter(Boolean)));
-      setPreviousLocations(uniqueLocations.slice(0, 10));
+    if (isToday) {
+      return `Today – ${dayName}, ${monthName} ${dayNum}`;
+    } else if (isTomorrow) {
+      return `Tomorrow – ${dayName}, ${monthName} ${dayNum}`;
+    } else {
+      return `${dayName}, ${monthName} ${dayNum}`;
     }
-  };
-
-  const formatDate = (date: Date) => {
-    const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
-  };
-
-  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + durationMinutes;
-    const endHours = Math.floor(totalMinutes / 60) % 24;
-    const endMinutes = totalMinutes % 60;
-    const ampm = endHours >= 12 ? 'PM' : 'AM';
-    const displayHour = endHours % 12 || 12;
-    return `${displayHour}:${String(endMinutes).padStart(2, '0')} ${ampm}`;
-  };
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   const handleConfirm = () => {
-    const durationNum = parseInt(duration);
-    if (clientId && clientName.trim() && location.trim() && durationNum > 0) {
-      onConfirm(clientId, clientName, location, durationNum);
-      setClientId('');
-      setClientName('');
-      setLocation('');
-      setDuration('60');
-    }
+    if (!clientId || !location.trim()) return;
+
+    const formattedTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+    const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
+
+    onConfirm(clientId, finalName, location, duration, formattedTime);
+    resetForm();
   };
 
-  const handleClientSelect = (id: string, name: string) => {
-    setClientId(id);
-    setClientName(name);
+  const handleCancel = () => {
+    resetForm();
+    onClose();
+  };
+
+  const resetForm = () => {
+    setSessionName('');
+    setClientId('');
+    setLocation('');
+    setDuration(60);
+    setSoundEnabled(true);
+    setVibrationEnabled(true);
+    setClientReminder(true);
     setShowClientPicker(false);
   };
 
-  const handleLocationSelect = (loc: string) => {
-    setLocation(loc);
-    setShowLocationPicker(false);
+  const handleClientSelect = (id: string) => {
+    setClientId(id);
+    const client = clients.find(c => c.id === id);
+    if (client && !sessionName) {
+      setSessionName(`Session with ${client.name}`);
+    }
+    setShowClientPicker(false);
   };
 
-  const handleDurationSelect = (mins: number) => {
-    setDuration(mins.toString());
-    setShowDurationPicker(false);
-  };
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleCancel}
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Book Session</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color="#ffffff" strokeWidth={2} />
-            </TouchableOpacity>
-          </View>
+          <View style={styles.timePickerSection}>
+            <View style={styles.timeDisplay}>
+              <ScrollView
+                ref={hourScrollRef}
+                showsVerticalScrollIndicator={false}
+                snapToInterval={80}
+                decelerationRate="fast"
+                contentContainerStyle={styles.scrollContent}
+              >
+                {hours.map((h) => (
+                  <TouchableOpacity
+                    key={h}
+                    style={styles.timeItem}
+                    onPress={() => setHour(h)}
+                  >
+                    <Text style={[
+                      styles.timeText,
+                      h === hour && styles.timeTextSelected
+                    ]}>
+                      {String(h).padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-          <View style={styles.dateTimeInfo}>
-            <View style={styles.infoRow}>
-              <Clock size={20} color="#1a8dff" strokeWidth={2} />
-              <View style={styles.infoText}>
-                <Text style={styles.infoLabel}>Date & Time</Text>
-                <Text style={styles.infoValue}>{formatDate(selectedDate)}</Text>
-                <Text style={styles.infoValue}>
-                  {formatTime(selectedTime)}
-                  {duration && parseInt(duration) > 0 && ` - ${calculateEndTime(selectedTime, parseInt(duration))}`}
-                </Text>
-              </View>
+              <Text style={styles.timeSeparator}>:</Text>
+
+              <ScrollView
+                ref={minuteScrollRef}
+                showsVerticalScrollIndicator={false}
+                snapToInterval={80}
+                decelerationRate="fast"
+                contentContainerStyle={styles.scrollContent}
+              >
+                {minutes.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={styles.timeItem}
+                    onPress={() => setMinute(m)}
+                  >
+                    <Text style={[
+                      styles.timeText,
+                      m === minute && styles.timeTextSelected
+                    ]}>
+                      {String(m).padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
+
+            <Text style={styles.dateDisplay}>{formatDateDisplay(selectedDate)}</Text>
           </View>
 
-          <ScrollView style={styles.form} contentContainerStyle={styles.formContent}>
+          <ScrollView style={styles.contentSection}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Client Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.sessionNameInput}
+                placeholder="Session name"
+                placeholderTextColor="#5b6f92"
+                value={sessionName}
+                onChangeText={setSessionName}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.fieldLabel}>Client</Text>
               <TouchableOpacity
-                style={styles.input}
+                style={styles.selectButton}
                 onPress={() => setShowClientPicker(!showClientPicker)}
               >
-                <User size={20} color="#5b6f92" strokeWidth={2} />
-                <Text style={[styles.inputText, !clientName && styles.placeholder]}>
-                  {clientName || 'Select or enter client name'}
+                <Text style={[
+                  styles.selectButtonText,
+                  !clientId && styles.selectButtonPlaceholder
+                ]}>
+                  {clientId ? clients.find(c => c.id === clientId)?.name : 'Select client'}
                 </Text>
               </TouchableOpacity>
 
               {showClientPicker && (
-                <View style={styles.clientPicker}>
+                <View style={styles.pickerDropdown}>
                   {clients.map((client) => (
                     <TouchableOpacity
                       key={client.id}
-                      style={styles.clientOption}
-                      onPress={() => handleClientSelect(client.id, client.name)}
+                      style={styles.pickerOption}
+                      onPress={() => handleClientSelect(client.id)}
                     >
-                      <Text style={styles.clientOptionText}>{client.name}</Text>
+                      <Text style={styles.pickerOptionText}>{client.name}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -173,114 +198,88 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Duration <Text style={styles.required}>*</Text></Text>
-              <View style={styles.durationInputContainer}>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => setShowDurationPicker(!showDurationPicker)}
-                >
-                  <Timer size={20} color="#5b6f92" strokeWidth={2} />
-                  <Text style={[styles.inputText, !duration && styles.placeholder]}>
-                    {duration ? `${duration} minutes` : 'Select duration'}
-                  </Text>
-                  <ChevronDown size={20} color="#5b6f92" strokeWidth={2} />
-                </TouchableOpacity>
-
-                {showDurationPicker && (
-                  <View style={styles.durationPicker}>
-                    <Text style={styles.pickerTitle}>Common Durations</Text>
-                    {commonDurations.map((mins) => (
-                      <TouchableOpacity
-                        key={mins}
-                        style={[
-                          styles.durationOption,
-                          duration === mins.toString() && styles.durationOptionSelected
-                        ]}
-                        onPress={() => handleDurationSelect(mins)}
-                      >
-                        <Text style={[
-                          styles.durationOptionText,
-                          duration === mins.toString() && styles.durationOptionTextSelected
-                        ]}>
-                          {mins} minutes
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                    <View style={styles.divider} />
-                    <View style={styles.customDurationContainer}>
-                      <Text style={styles.customDurationLabel}>Custom Duration</Text>
-                      <View style={styles.customDurationInput}>
-                        <TextInput
-                          style={styles.customDurationTextInput}
-                          placeholder="Enter minutes"
-                          placeholderTextColor="#5b6f92"
-                          value={duration}
-                          onChangeText={setDuration}
-                          keyboardType="numeric"
-                          onSubmitEditing={() => setShowDurationPicker(false)}
-                        />
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.fieldLabel}>Location</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter location"
+                placeholderTextColor="#5b6f92"
+                value={location}
+                onChangeText={setLocation}
+              />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Location <Text style={styles.required}>*</Text></Text>
-              <View style={styles.locationInputContainer}>
-                <View style={styles.locationInputWrapper}>
-                  <MapPin size={20} color="#5b6f92" strokeWidth={2} />
-                  <TextInput
-                    style={styles.locationInput}
-                    placeholder="Enter address or location..."
-                    placeholderTextColor="#5b6f92"
-                    value={location}
-                    onChangeText={setLocation}
-                    onFocus={() => setShowLocationPicker(false)}
-                  />
-                  {previousLocations.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setShowLocationPicker(!showLocationPicker)}
-                      style={styles.dropdownButton}
-                    >
-                      <ChevronDown size={20} color="#5b6f92" strokeWidth={2} />
-                    </TouchableOpacity>
-                  )}
-                </View>
+              <Text style={styles.fieldLabel}>Duration (minutes)</Text>
+              <View style={styles.durationButtons}>
+                {[30, 45, 60, 90].map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[
+                      styles.durationButton,
+                      duration === d && styles.durationButtonSelected
+                    ]}
+                    onPress={() => setDuration(d)}
+                  >
+                    <Text style={[
+                      styles.durationButtonText,
+                      duration === d && styles.durationButtonTextSelected
+                    ]}>
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-                {showLocationPicker && previousLocations.length > 0 && (
-                  <View style={styles.locationPicker}>
-                    <Text style={styles.pickerTitle}>Recent Locations</Text>
-                    {previousLocations.map((loc, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.locationOption}
-                        onPress={() => handleLocationSelect(loc)}
-                      >
-                        <MapPin size={16} color="#5b6f92" strokeWidth={2} />
-                        <Text style={styles.locationOptionText}>{loc}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+            <View style={styles.toggleSection}>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Sound</Text>
+                <Switch
+                  value={soundEnabled}
+                  onValueChange={setSoundEnabled}
+                  trackColor={{ false: '#1a1f2e', true: '#1a8dff' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Vibrate</Text>
+                <Switch
+                  value={vibrationEnabled}
+                  onValueChange={setVibrationEnabled}
+                  trackColor={{ false: '#1a1f2e', true: '#1a8dff' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Remind client</Text>
+                <Switch
+                  value={clientReminder}
+                  onValueChange={setClientReminder}
+                  trackColor={{ false: '#1a1f2e', true: '#1a8dff' }}
+                  thumbColor="#ffffff"
+                />
               </View>
             </View>
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.cancelButton}
-              onPress={onClose}
+              onPress={handleCancel}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, (!clientId || !clientName || !location || !duration || parseInt(duration) <= 0) && styles.confirmButtonDisabled]}
+              style={[
+                styles.saveButton,
+                (!clientId || !location.trim()) && styles.saveButtonDisabled
+              ]}
               onPress={handleConfirm}
-              disabled={!clientId || !clientName || !location || !duration || parseInt(duration) <= 0}
+              disabled={!clientId || !location.trim()}
             >
-              <Text style={styles.confirmButtonText}>Book Session</Text>
+              <Text style={styles.saveButtonText}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -292,270 +291,211 @@ export default function BookingModal({ visible, onClose, onConfirm, selectedDate
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(2, 4, 10, 0.95)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(2, 4, 10, 0.98)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContainer: {
+    width: '100%',
+    maxWidth: 440,
+    height: '95%',
     backgroundColor: '#0b0f1e',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
+    borderRadius: 28,
+    overflow: 'hidden',
   },
-  header: {
-    flexDirection: 'row',
+  timePickerSection: {
+    paddingTop: 48,
+    paddingBottom: 32,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  title: {
-    fontSize: 24,
-    color: '#ffffff',
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
+  timeDisplay: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    height: 240,
+    marginBottom: 16,
   },
-  dateTimeInfo: {
-    padding: 20,
-    backgroundColor: '#050814',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  scrollContent: {
+    paddingVertical: 80,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  timeItem: {
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  infoText: {
-    marginLeft: 12,
-    flex: 1,
+  timeText: {
+    fontSize: 56,
+    color: '#2a3448',
+    fontWeight: '300',
   },
-  infoLabel: {
-    fontSize: 12,
-    color: '#5b6f92',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 16,
+  timeTextSelected: {
+    fontSize: 72,
     color: '#ffffff',
-    fontWeight: '600',
-    letterSpacing: -0.2,
+    fontWeight: '300',
   },
-  form: {
+  timeSeparator: {
+    fontSize: 72,
+    color: '#ffffff',
+    fontWeight: '300',
+    marginHorizontal: 8,
+  },
+  dateDisplay: {
+    fontSize: 16,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  contentSection: {
     flex: 1,
-  },
-  formContent: {
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
   inputGroup: {
     marginBottom: 24,
   },
-  label: {
-    fontSize: 14,
+  sessionNameInput: {
+    fontSize: 20,
     color: '#ffffff',
-    fontWeight: '600',
-    marginBottom: 12,
-    letterSpacing: -0.2,
-  },
-  required: {
-    color: '#ff4757',
-  },
-  input: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#050814',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 16,
-    gap: 12,
-  },
-  inputText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  placeholder: {
-    color: '#5b6f92',
-  },
-  clientPicker: {
-    marginTop: 8,
-    backgroundColor: '#050814',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 12,
-  },
-  clientOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-  },
-  clientOptionText: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 8,
-  },
-  clientInput: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '500',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  locationInputContainer: {
-    position: 'relative',
-  },
-  locationInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#050814',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    fontWeight: '400',
+    paddingVertical: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  locationInput: {
-    flex: 1,
+  fieldLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  selectButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  selectButtonText: {
     fontSize: 16,
     color: '#ffffff',
-    fontWeight: '500',
-    paddingVertical: 4,
+    fontWeight: '400',
   },
-  dropdownButton: {
-    padding: 4,
+  selectButtonPlaceholder: {
+    color: '#5b6f92',
   },
-  locationPicker: {
+  pickerDropdown: {
     marginTop: 8,
     backgroundColor: '#050814',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 12,
+    overflow: 'hidden',
   },
-  pickerTitle: {
-    fontSize: 12,
-    color: '#5b6f92',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 8,
+  pickerOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
   },
-  locationOption: {
+  pickerOptionText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '400',
+  },
+  textInput: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  durationButtons: {
     flexDirection: 'row',
+    gap: 12,
+  },
+  durationButton: {
+    flex: 1,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+  },
+  durationButtonSelected: {
+    backgroundColor: 'rgba(26, 141, 255, 0.15)',
+    borderColor: '#1a8dff',
+  },
+  durationButtonText: {
+    fontSize: 16,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  durationButtonTextSelected: {
+    color: '#1a8dff',
+    fontWeight: '600',
+  },
+  toggleSection: {
+    gap: 8,
+    marginTop: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 8,
-    gap: 12,
-  },
-  locationOptionText: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  durationInputContainer: {
-    position: 'relative',
-  },
-  durationPicker: {
-    marginTop: 8,
-    backgroundColor: '#050814',
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 12,
   },
-  durationOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  durationOptionSelected: {
-    backgroundColor: 'rgba(26, 141, 255, 0.15)',
-  },
-  durationOptionText: {
+  toggleLabel: {
     fontSize: 16,
     color: '#ffffff',
-    fontWeight: '500',
+    fontWeight: '400',
   },
-  durationOptionTextSelected: {
-    color: '#1a8dff',
-    fontWeight: '700',
-  },
-  customDurationContainer: {
-    marginTop: 8,
-  },
-  customDurationLabel: {
-    fontSize: 12,
-    color: '#5b6f92',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-  },
-  customDurationInput: {
-    backgroundColor: '#0b0f1e',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  customDurationTextInput: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '500',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  footer: {
+  actionButtons: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 12,
+    gap: 16,
+    padding: 24,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 16,
+    paddingVertical: 18,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#ffffff',
     fontWeight: '600',
   },
-  confirmButton: {
+  saveButton: {
     flex: 1,
-    backgroundColor: '#1a8dff',
-    borderRadius: 12,
-    padding: 16,
+    paddingVertical: 18,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a8dff',
+    borderRadius: 28,
   },
-  confirmButtonDisabled: {
+  saveButtonDisabled: {
     backgroundColor: 'rgba(26, 141, 255, 0.3)',
   },
-  confirmButtonText: {
-    fontSize: 16,
+  saveButtonText: {
+    fontSize: 17,
     color: '#ffffff',
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
