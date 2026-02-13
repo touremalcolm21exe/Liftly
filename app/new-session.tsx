@@ -9,6 +9,12 @@ interface Client {
   name: string;
 }
 
+interface WorkoutTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 export default function NewSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -18,15 +24,19 @@ export default function NewSessionScreen() {
   const [sessionName, setSessionName] = useState('');
   const [clientId, setClientId] = useState('');
   const [location, setLocation] = useState('');
+  const [workoutTemplateId, setWorkoutTemplateId] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
   const [showClientPicker, setShowClientPicker] = useState(false);
+  const [showWorkoutPicker, setShowWorkoutPicker] = useState(false);
+  const [workoutSearchQuery, setWorkoutSearchQuery] = useState('');
   const [startTimeError, setStartTimeError] = useState('');
   const [endTimeError, setEndTimeError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadClients();
+    loadData();
 
     if (params.date) {
       const dateParam = Array.isArray(params.date) ? params.date[0] : params.date;
@@ -34,7 +44,7 @@ export default function NewSessionScreen() {
     }
   }, [params.date]);
 
-  const loadClients = async () => {
+  const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -53,17 +63,28 @@ export default function NewSessionScreen() {
         return;
       }
 
-      const { data: clientsList } = await supabase
-        .from('clients')
-        .select('id, name')
-        .eq('trainer_id', trainer.id)
-        .order('name');
+      const [clientsResult, templatesResult] = await Promise.all([
+        supabase
+          .from('clients')
+          .select('id, name')
+          .eq('trainer_id', trainer.id)
+          .order('name'),
+        supabase
+          .from('workout_templates')
+          .select('id, name, description')
+          .eq('trainer_id', trainer.id)
+          .order('name')
+      ]);
 
-      if (clientsList) {
-        setClients(clientsList);
+      if (clientsResult.data) {
+        setClients(clientsResult.data);
+      }
+
+      if (templatesResult.data) {
+        setWorkoutTemplates(templatesResult.data);
       }
     } catch (error) {
-      console.error('Error loading clients:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -176,7 +197,7 @@ export default function NewSessionScreen() {
       const dateStr = selectedDate.toISOString().split('T')[0];
       const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
 
-      const { error } = await supabase.from('sessions').insert({
+      const sessionData: any = {
         client_id: clientId,
         client_name: finalName,
         date: dateStr,
@@ -185,7 +206,13 @@ export default function NewSessionScreen() {
         duration_minutes: duration,
         location,
         status: 'scheduled',
-      });
+      };
+
+      if (workoutTemplateId) {
+        sessionData.workout_template_id = workoutTemplateId;
+      }
+
+      const { error } = await supabase.from('sessions').insert(sessionData);
 
       if (!error) {
         router.back();
@@ -208,6 +235,28 @@ export default function NewSessionScreen() {
       setSessionName(`Session with ${client.name}`);
     }
     setShowClientPicker(false);
+  };
+
+  const handleWorkoutSelect = (id: string) => {
+    setWorkoutTemplateId(id);
+    setShowWorkoutPicker(false);
+    setWorkoutSearchQuery('');
+  };
+
+  const handleClearWorkout = () => {
+    setWorkoutTemplateId('');
+  };
+
+  const getFilteredWorkouts = () => {
+    if (!workoutSearchQuery.trim()) {
+      return workoutTemplates;
+    }
+    const query = workoutSearchQuery.toLowerCase();
+    return workoutTemplates.filter(
+      (template) =>
+        template.name.toLowerCase().includes(query) ||
+        (template.description && template.description.toLowerCase().includes(query))
+    );
   };
 
   const isFormValid = clientId && location.trim() && validateTimeFormat(startTime) && validateTimeFormat(endTime);
@@ -281,6 +330,76 @@ export default function NewSessionScreen() {
             value={location}
             onChangeText={setLocation}
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>Workout (Optional)</Text>
+          {workoutTemplateId ? (
+            <View style={styles.selectedWorkoutContainer}>
+              <View style={styles.selectedWorkout}>
+                <View style={styles.selectedWorkoutInfo}>
+                  <Text style={styles.selectedWorkoutName}>
+                    {workoutTemplates.find(w => w.id === workoutTemplateId)?.name}
+                  </Text>
+                  {workoutTemplates.find(w => w.id === workoutTemplateId)?.description && (
+                    <Text style={styles.selectedWorkoutDescription}>
+                      {workoutTemplates.find(w => w.id === workoutTemplateId)?.description}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.clearWorkoutButton}
+                  onPress={handleClearWorkout}
+                >
+                  <X size={20} color="#5b6f92" strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setShowWorkoutPicker(!showWorkoutPicker)}
+            >
+              <Text style={[styles.selectButtonText, styles.selectButtonPlaceholder]}>
+                Select workout template
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {showWorkoutPicker && (
+            <View style={styles.workoutPickerContainer}>
+              <TextInput
+                style={styles.workoutSearchInput}
+                placeholder="Search workouts..."
+                placeholderTextColor="#5b6f92"
+                value={workoutSearchQuery}
+                onChangeText={setWorkoutSearchQuery}
+                autoFocus
+              />
+              <ScrollView style={styles.workoutPickerList} nestedScrollEnabled>
+                {getFilteredWorkouts().length > 0 ? (
+                  getFilteredWorkouts().map((template) => (
+                    <TouchableOpacity
+                      key={template.id}
+                      style={styles.workoutPickerOption}
+                      onPress={() => handleWorkoutSelect(template.id)}
+                    >
+                      <Text style={styles.workoutPickerOptionName}>{template.name}</Text>
+                      {template.description && (
+                        <Text style={styles.workoutPickerOptionDescription}>
+                          {template.description}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.noWorkoutsContainer}>
+                    <Text style={styles.noWorkoutsText}>No workouts found</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         <View style={styles.inputGroup}>
@@ -508,5 +627,86 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#ffffff',
     fontWeight: '600',
+  },
+  selectedWorkoutContainer: {
+    marginBottom: 0,
+  },
+  selectedWorkout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(26, 141, 255, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 141, 255, 0.3)',
+  },
+  selectedWorkoutInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  selectedWorkoutName: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  selectedWorkoutDescription: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '400',
+  },
+  clearWorkoutButton: {
+    padding: 4,
+  },
+  workoutPickerContainer: {
+    marginTop: 8,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    maxHeight: 300,
+  },
+  workoutSearchInput: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  workoutPickerList: {
+    maxHeight: 240,
+  },
+  workoutPickerOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  workoutPickerOptionName: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  workoutPickerOptionDescription: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '400',
+  },
+  noWorkoutsContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noWorkoutsText: {
+    fontSize: 14,
+    color: '#5b6f92',
+    fontWeight: '500',
   },
 });
