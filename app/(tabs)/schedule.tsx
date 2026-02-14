@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus, Clock, MapPin } from 'lucide-react-native';
 import Calendar from '@/components/Calendar';
+import SessionDetailsModal from '@/components/SessionDetailsModal';
 import { supabase } from '@/lib/supabase';
 
 interface Session {
@@ -21,6 +22,8 @@ export default function ScheduleScreen() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsMap, setSessionsMap] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
     loadSessions();
@@ -119,6 +122,20 @@ export default function ScheduleScreen() {
     return sessions.filter(s => s.date === dateStr && s.status === 'scheduled');
   };
 
+  const handleSessionClick = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setShowDetailsModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowDetailsModal(false);
+    setSelectedSessionId(null);
+  };
+
+  const handleDeleteSession = () => {
+    loadSessions();
+  };
+
   const daysSessions = getSelectedDateSessions();
 
   if (loading) {
@@ -164,7 +181,12 @@ export default function ScheduleScreen() {
           {daysSessions.length > 0 ? (
             <View style={styles.sessionsList}>
               {daysSessions.map((session) => (
-                <View key={session.id} style={styles.sessionCard}>
+                <TouchableOpacity
+                  key={session.id}
+                  style={styles.sessionCard}
+                  onPress={() => handleSessionClick(session.id)}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.sessionTimeContainer}>
                     <Text style={styles.sessionTime}>
                       {formatTime(session.start_time)}
@@ -184,7 +206,7 @@ export default function ScheduleScreen() {
                       <Text style={styles.sessionMetaText}>{session.location}</Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           ) : (
@@ -200,6 +222,13 @@ export default function ScheduleScreen() {
           )}
         </View>
       </ScrollView>
+
+      <SessionDetailsModal
+        visible={showDetailsModal}
+        sessionId={selectedSessionId}
+        onClose={handleCloseModal}
+        onDelete={handleDeleteSession}
+      />
     </View>
   );
 }

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert } from 'react-native';
-import { X, User, MapPin, Clock, Calendar as CalendarIcon, Trash2 } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { X, User, MapPin, Clock, Calendar as CalendarIcon, Trash2, Timer, FileText, Dumbbell } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 
 interface Session {
   id: string;
@@ -10,18 +11,69 @@ interface Session {
   end_time: string;
   location: string;
   status: string;
+  duration_minutes?: number;
+  notes?: string;
+  workout_template_id?: string;
+}
+
+interface WorkoutTemplate {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 interface SessionDetailsModalProps {
   visible: boolean;
   onClose: () => void;
-  session: Session | null;
-  onReschedule: (sessionId: string) => void;
-  onCancel: (sessionId: string) => void;
+  sessionId: string | null;
+  onDelete: () => void;
 }
 
-export default function SessionDetailsModal({ visible, onClose, session, onReschedule, onCancel }: SessionDetailsModalProps) {
-  if (!session) return null;
+export default function SessionDetailsModal({ visible, onClose, sessionId, onDelete }: SessionDetailsModalProps) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [workoutTemplate, setWorkoutTemplate] = useState<WorkoutTemplate | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (visible && sessionId) {
+      loadSessionDetails();
+    }
+  }, [visible, sessionId]);
+
+  const loadSessionDetails = async () => {
+    setLoading(true);
+    try {
+      const { data: sessionData, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (sessionData) {
+        setSession(sessionData);
+
+        if (sessionData.workout_template_id) {
+          const { data: templateData } = await supabase
+            .from('workout_templates')
+            .select('id, name, description')
+            .eq('id', sessionData.workout_template_id)
+            .maybeSingle();
+
+          if (templateData) {
+            setWorkoutTemplate(templateData);
+          }
+        } else {
+          setWorkoutTemplate(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading session details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString + 'T00:00:00');
@@ -37,30 +89,42 @@ export default function SessionDetailsModal({ visible, onClose, session, onResch
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const handleCancelSession = () => {
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins} min`;
+    if (mins === 0) return `${hours} hr`;
+    return `${hours} hr ${mins} min`;
+  };
+
+  const handleDeleteSession = () => {
     Alert.alert(
-      'Cancel Session',
-      `Are you sure you want to cancel this session with ${session.client_name}?`,
+      'Delete Session',
+      `Are you sure you want to delete this session with ${session?.client_name}?`,
       [
         {
-          text: 'No, Keep It',
+          text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Yes, Cancel',
+          text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            onCancel(session.id);
-            onClose();
+          onPress: async () => {
+            try {
+              await supabase
+                .from('sessions')
+                .delete()
+                .eq('id', sessionId);
+
+              onDelete();
+              onClose();
+            } catch (error) {
+              console.error('Error deleting session:', error);
+            }
           },
         },
       ]
     );
-  };
-
-  const handleReschedule = () => {
-    onReschedule(session.id);
-    onClose();
   };
 
   return (
@@ -79,68 +143,120 @@ export default function SessionDetailsModal({ visible, onClose, session, onResch
             </TouchableOpacity>
           </View>
 
-          <View style={styles.content}>
-            <View style={styles.clientSection}>
-              <View style={styles.avatar}>
-                <User size={32} color="#1a8dff" strokeWidth={2} />
-              </View>
-              <Text style={styles.clientName}>{session.client_name}</Text>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{session.status}</Text>
-              </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1a8dff" />
             </View>
+          ) : session ? (
+            <>
+              <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                <View style={styles.clientSection}>
+                  <View style={styles.avatar}>
+                    <User size={32} color="#1a8dff" strokeWidth={2} />
+                  </View>
+                  <Text style={styles.clientName}>{session.client_name}</Text>
+                  <View style={[
+                    styles.statusBadge,
+                    session.status === 'completed' && styles.statusBadgeCompleted,
+                    session.status === 'cancelled' && styles.statusBadgeCancelled,
+                  ]}>
+                    <Text style={[
+                      styles.statusText,
+                      session.status === 'completed' && styles.statusTextCompleted,
+                      session.status === 'cancelled' && styles.statusTextCancelled,
+                    ]}>
+                      {session.status}
+                    </Text>
+                  </View>
+                </View>
 
-            <View style={styles.detailsSection}>
-              <View style={styles.detailRow}>
-                <View style={styles.detailIcon}>
-                  <CalendarIcon size={20} color="#1a8dff" strokeWidth={2} />
-                </View>
-                <View style={styles.detailText}>
-                  <Text style={styles.detailLabel}>Date</Text>
-                  <Text style={styles.detailValue}>{formatDate(session.date)}</Text>
-                </View>
-              </View>
+                <View style={styles.detailsSection}>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIcon}>
+                      <CalendarIcon size={20} color="#1a8dff" strokeWidth={2} />
+                    </View>
+                    <View style={styles.detailText}>
+                      <Text style={styles.detailLabel}>Date</Text>
+                      <Text style={styles.detailValue}>{formatDate(session.date)}</Text>
+                    </View>
+                  </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailIcon}>
-                  <Clock size={20} color="#1a8dff" strokeWidth={2} />
-                </View>
-                <View style={styles.detailText}>
-                  <Text style={styles.detailLabel}>Time</Text>
-                  <Text style={styles.detailValue}>
-                    {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                  </Text>
-                </View>
-              </View>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIcon}>
+                      <Clock size={20} color="#1a8dff" strokeWidth={2} />
+                    </View>
+                    <View style={styles.detailText}>
+                      <Text style={styles.detailLabel}>Time</Text>
+                      <Text style={styles.detailValue}>
+                        {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                      </Text>
+                    </View>
+                  </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailIcon}>
-                  <MapPin size={20} color="#1a8dff" strokeWidth={2} />
-                </View>
-                <View style={styles.detailText}>
-                  <Text style={styles.detailLabel}>Location</Text>
-                  <Text style={styles.detailValue}>{session.location}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+                  {session.duration_minutes && (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailIcon}>
+                        <Timer size={20} color="#1a8dff" strokeWidth={2} />
+                      </View>
+                      <View style={styles.detailText}>
+                        <Text style={styles.detailLabel}>Duration</Text>
+                        <Text style={styles.detailValue}>{formatDuration(session.duration_minutes)}</Text>
+                      </View>
+                    </View>
+                  )}
 
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.rescheduleButton}
-              onPress={handleReschedule}
-            >
-              <CalendarIcon size={20} color="#ffffff" strokeWidth={2} />
-              <Text style={styles.rescheduleButtonText}>Reschedule</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancelSession}
-            >
-              <Trash2 size={20} color="#ef4444" strokeWidth={2} />
-              <Text style={styles.cancelButtonText}>Cancel Session</Text>
-            </TouchableOpacity>
-          </View>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailIcon}>
+                      <MapPin size={20} color="#1a8dff" strokeWidth={2} />
+                    </View>
+                    <View style={styles.detailText}>
+                      <Text style={styles.detailLabel}>Location</Text>
+                      <Text style={styles.detailValue}>{session.location}</Text>
+                    </View>
+                  </View>
+
+                  {workoutTemplate && (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailIcon}>
+                        <Dumbbell size={20} color="#1a8dff" strokeWidth={2} />
+                      </View>
+                      <View style={styles.detailText}>
+                        <Text style={styles.detailLabel}>Workout</Text>
+                        <Text style={styles.detailValue}>{workoutTemplate.name}</Text>
+                        {workoutTemplate.description && (
+                          <Text style={styles.detailDescription}>{workoutTemplate.description}</Text>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {session.notes && (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailIcon}>
+                        <FileText size={20} color="#1a8dff" strokeWidth={2} />
+                      </View>
+                      <View style={styles.detailText}>
+                        <Text style={styles.detailLabel}>Notes</Text>
+                        <Text style={styles.detailValue}>{session.notes}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              {session.status === 'scheduled' && (
+                <View style={styles.footer}>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeleteSession}
+                  >
+                    <Trash2 size={20} color="#ef4444" strokeWidth={2} />
+                    <Text style={styles.deleteButtonText}>Delete Session</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -252,27 +368,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.2,
   },
+  detailDescription: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '400',
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    paddingVertical: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadgeCompleted: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  statusBadgeCancelled: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  statusTextCompleted: {
+    color: '#22c55e',
+  },
+  statusTextCancelled: {
+    color: '#ef4444',
+  },
   footer: {
     padding: 20,
-    gap: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
-  rescheduleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1a8dff',
-    borderRadius: 12,
-    padding: 16,
-    gap: 10,
-  },
-  rescheduleButtonText: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  cancelButton: {
+  deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -283,7 +408,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  cancelButtonText: {
+  deleteButtonText: {
     fontSize: 16,
     color: '#ef4444',
     fontWeight: '600',
