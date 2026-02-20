@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Users, Calendar, Dumbbell, TrendingUp, Clock, MapPin } from 'lucide-react-native';
+import { Users, Calendar, Dumbbell, TrendingUp, Clock, MapPin, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,8 @@ interface TodaySession {
   end_time: string;
   location: string;
   status: string;
+  confirmed_by_trainer: boolean;
+  completed_at: string | null;
 }
 
 interface CurrentSession extends TodaySession {
@@ -62,7 +64,7 @@ export default function HomeScreen() {
 
       const { data: sessions } = await supabase
         .from('sessions')
-        .select('id, client_id, client_name, start_time, end_time, location, status')
+        .select('id, client_id, client_name, start_time, end_time, location, status, confirmed_by_trainer, completed_at')
         .eq('date', today)
         .in('client_id', clientIds)
         .order('start_time');
@@ -170,41 +172,65 @@ export default function HomeScreen() {
       {todaySessions.length > 0 && (
         <View style={styles.sessionsSection}>
           <Text style={styles.sectionTitle}>Today's Sessions</Text>
-          {todaySessions.map((session) => (
-            <TouchableOpacity
-              key={session.id}
-              style={styles.sessionCard}
-              onPress={() => router.push(`/current-workout?sessionId=${session.id}`)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.sessionHeader}>
-                <Text style={styles.sessionClient}>{session.client_name}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  session.status === 'completed' && styles.statusBadgeCompleted
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    session.status === 'completed' && styles.statusTextCompleted
+          {todaySessions.map((session) => {
+            const isCompleted = session.confirmed_by_trainer && session.completed_at;
+            return (
+              <TouchableOpacity
+                key={session.id}
+                style={[
+                  styles.sessionCard,
+                  isCompleted && styles.sessionCardCompleted
+                ]}
+                onPress={() => router.push(`/current-workout?sessionId=${session.id}`)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.sessionHeader}>
+                  <View style={styles.sessionClientRow}>
+                    {isCompleted && (
+                      <CheckCircle2 size={20} color="#22c55e" strokeWidth={2.5} />
+                    )}
+                    <Text style={[
+                      styles.sessionClient,
+                      isCompleted && styles.sessionClientCompleted
+                    ]}>
+                      {session.client_name}
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.statusBadge,
+                    isCompleted && styles.statusBadgeCompleted
                   ]}>
-                    {session.status === 'completed' ? 'Completed' : 'Scheduled'}
-                  </Text>
+                    <Text style={[
+                      styles.statusText,
+                      isCompleted && styles.statusTextCompleted
+                    ]}>
+                      {isCompleted ? 'Completed' : 'Scheduled'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.sessionDetails}>
-                <View style={styles.sessionDetail}>
-                  <Clock size={16} color="#5b6f92" strokeWidth={2} />
-                  <Text style={styles.sessionDetailText}>
-                    {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                  </Text>
+                <View style={styles.sessionDetails}>
+                  <View style={styles.sessionDetail}>
+                    <Clock size={16} color={isCompleted ? '#3d4a5f' : '#5b6f92'} strokeWidth={2} />
+                    <Text style={[
+                      styles.sessionDetailText,
+                      isCompleted && styles.sessionDetailTextCompleted
+                    ]}>
+                      {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                    </Text>
+                  </View>
+                  <View style={styles.sessionDetail}>
+                    <MapPin size={16} color={isCompleted ? '#3d4a5f' : '#5b6f92'} strokeWidth={2} />
+                    <Text style={[
+                      styles.sessionDetailText,
+                      isCompleted && styles.sessionDetailTextCompleted
+                    ]}>
+                      {session.location}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.sessionDetail}>
-                  <MapPin size={16} color="#5b6f92" strokeWidth={2} />
-                  <Text style={styles.sessionDetailText}>{session.location}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 
@@ -494,17 +520,30 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  sessionCardCompleted: {
+    backgroundColor: '#070a14',
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+    opacity: 0.7,
+  },
   sessionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  sessionClientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sessionClient: {
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  sessionClientCompleted: {
+    color: '#8b96ad',
   },
   statusBadge: {
     backgroundColor: 'rgba(26, 141, 255, 0.15)',
@@ -535,5 +574,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5b6f92',
     fontWeight: '500',
+  },
+  sessionDetailTextCompleted: {
+    color: '#3d4a5f',
   },
 });
