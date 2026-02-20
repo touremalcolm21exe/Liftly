@@ -72,15 +72,17 @@ export default function HomeScreen() {
         setTotalSessions(sessions.length);
         setCompletedSessions(sessions.filter(s => s.status === 'completed').length);
 
-        // Find current session (in progress or next scheduled)
+        // Find current session (in progress or next scheduled, but not completed)
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 5);
 
-        const inProgressSession = sessions.find(s => {
-          return s.status === 'scheduled' && s.start_time <= currentTime && s.end_time >= currentTime;
+        const scheduledSessions = sessions.filter(s => s.status === 'scheduled');
+
+        const inProgressSession = scheduledSessions.find(s => {
+          return s.start_time <= currentTime && s.end_time >= currentTime;
         });
 
-        const nextSession = sessions.find(s => s.status === 'scheduled' && s.start_time > currentTime);
+        const nextSession = scheduledSessions.find(s => s.start_time > currentTime);
 
         setCurrentSession(inProgressSession || nextSession || null);
       }

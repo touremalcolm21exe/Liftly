@@ -357,7 +357,7 @@ export default function SessionDetailsModal({ visible, onClose, sessionId, onDel
                     ) : (
                       <>
                         <CheckCircle size={20} color="#ffffff" strokeWidth={2} />
-                        <Text style={styles.confirmButtonText}>Post-Workout Confirmation</Text>
+                        <Text style={styles.confirmButtonText}>Workout Complete</Text>
                       </>
                     )}
                   </TouchableOpacity>
