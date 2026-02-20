@@ -24,6 +24,16 @@ interface WorkoutTemplate {
   description: string | null;
 }
 
+interface WorkoutExercise {
+  id: string;
+  exercise_name: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  notes: string | null;
+  order_index: number;
+}
+
 interface SessionDetailsModalProps {
   visible: boolean;
   onClose: () => void;
@@ -34,6 +44,7 @@ interface SessionDetailsModalProps {
 export default function SessionDetailsModal({ visible, onClose, sessionId, onDelete }: SessionDetailsModalProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [workoutTemplate, setWorkoutTemplate] = useState<WorkoutTemplate | null>(null);
+  const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
 
@@ -69,6 +80,26 @@ export default function SessionDetailsModal({ visible, onClose, sessionId, onDel
           }
         } else {
           setWorkoutTemplate(null);
+        }
+
+        const { data: workoutData } = await supabase
+          .from('workouts')
+          .select('id')
+          .eq('session_id', sessionId)
+          .maybeSingle();
+
+        if (workoutData) {
+          const { data: exercisesData } = await supabase
+            .from('workout_exercises')
+            .select('*')
+            .eq('workout_id', workoutData.id)
+            .order('order_index');
+
+          if (exercisesData) {
+            setWorkoutExercises(exercisesData);
+          }
+        } else {
+          setWorkoutExercises([]);
         }
       }
     } catch (error) {
@@ -277,6 +308,41 @@ export default function SessionDetailsModal({ visible, onClose, sessionId, onDel
                     </View>
                   )}
                 </View>
+
+                {workoutExercises.length > 0 && (
+                  <View style={styles.workoutSection}>
+                    <Text style={styles.workoutSectionTitle}>Workout Exercises</Text>
+                    {workoutExercises.map((exercise, index) => (
+                      <View key={exercise.id} style={styles.exerciseCard}>
+                        <View style={styles.exerciseHeader}>
+                          <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
+                        </View>
+                        <View style={styles.exerciseMetrics}>
+                          <View style={styles.metricItem}>
+                            <Text style={styles.metricLabel}>Sets</Text>
+                            <Text style={styles.metricValue}>{exercise.sets}</Text>
+                          </View>
+                          <View style={styles.metricDivider} />
+                          <View style={styles.metricItem}>
+                            <Text style={styles.metricLabel}>Reps</Text>
+                            <Text style={styles.metricValue}>{exercise.reps}</Text>
+                          </View>
+                          <View style={styles.metricDivider} />
+                          <View style={styles.metricItem}>
+                            <Text style={styles.metricLabel}>Weight</Text>
+                            <Text style={styles.metricValue}>{exercise.weight} lbs</Text>
+                          </View>
+                        </View>
+                        {exercise.notes && (
+                          <View style={styles.exerciseNotes}>
+                            <Text style={styles.exerciseNotesLabel}>Notes:</Text>
+                            <Text style={styles.exerciseNotesText}>{exercise.notes}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
               </ScrollView>
 
               {session.status === 'scheduled' && (
@@ -523,5 +589,81 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9ca3af',
     fontWeight: '500',
+  },
+  workoutSection: {
+    marginTop: 24,
+    gap: 12,
+  },
+  workoutSectionTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  exerciseCard: {
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    gap: 12,
+  },
+  exerciseHeader: {
+    marginBottom: 4,
+  },
+  exerciseName: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  exerciseMetrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    backgroundColor: 'rgba(26, 141, 255, 0.08)',
+    borderRadius: 8,
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#5b6f92',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 18,
+    color: '#1a8dff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  metricDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  exerciseNotes: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  exerciseNotesLabel: {
+    fontSize: 12,
+    color: '#5b6f92',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  exerciseNotesText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '400',
+    lineHeight: 20,
   },
 });

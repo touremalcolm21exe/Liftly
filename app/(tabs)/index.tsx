@@ -15,10 +15,15 @@ interface TodaySession {
   status: string;
 }
 
+interface CurrentSession extends TodaySession {
+  client_id: string;
+}
+
 export default function HomeScreen() {
   const [totalSessions, setTotalSessions] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
+  const [currentSession, setCurrentSession] = useState<CurrentSession | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,7 +62,7 @@ export default function HomeScreen() {
 
       const { data: sessions } = await supabase
         .from('sessions')
-        .select('id, client_name, start_time, end_time, location, status')
+        .select('id, client_id, client_name, start_time, end_time, location, status')
         .eq('date', today)
         .in('client_id', clientIds)
         .order('start_time');
@@ -66,6 +71,18 @@ export default function HomeScreen() {
         setTodaySessions(sessions);
         setTotalSessions(sessions.length);
         setCompletedSessions(sessions.filter(s => s.status === 'completed').length);
+
+        // Find current session (in progress or next scheduled)
+        const now = new Date();
+        const currentTime = now.toTimeString().slice(0, 5);
+
+        const inProgressSession = sessions.find(s => {
+          return s.status === 'scheduled' && s.start_time <= currentTime && s.end_time >= currentTime;
+        });
+
+        const nextSession = sessions.find(s => s.status === 'scheduled' && s.start_time > currentTime);
+
+        setCurrentSession(inProgressSession || nextSession || null);
       }
     } catch (error) {
       console.error('Error loading sessions:', error);
@@ -147,6 +164,37 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
+
+      {currentSession && (
+        <View style={styles.currentWorkoutSection}>
+          <Text style={styles.sectionTitle}>Current Workout</Text>
+          <TouchableOpacity
+            style={styles.currentWorkoutCard}
+            onPress={() => router.push(`/current-workout?sessionId=${currentSession.id}`)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.currentWorkoutContent}>
+              <View style={styles.currentWorkoutHeader}>
+                <View style={styles.currentWorkoutIconContainer}>
+                  <Dumbbell size={28} color="#1a8dff" strokeWidth={2.5} />
+                </View>
+                <View style={styles.currentWorkoutInfo}>
+                  <Text style={styles.currentWorkoutClient}>{currentSession.client_name}</Text>
+                  <View style={styles.currentWorkoutDetails}>
+                    <Clock size={14} color="#5b6f92" strokeWidth={2} />
+                    <Text style={styles.currentWorkoutTime}>
+                      {formatTime(currentSession.start_time)} - {formatTime(currentSession.end_time)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.currentWorkoutBadge}>
+                <Text style={styles.currentWorkoutBadgeText}>Track Workout</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.quickActions}>
         <View style={styles.actionRow}>
@@ -327,6 +375,67 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  currentWorkoutSection: {
+    marginBottom: 32,
+  },
+  currentWorkoutCard: {
+    backgroundColor: 'rgba(26, 141, 255, 0.08)',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(26, 141, 255, 0.3)',
+    padding: 20,
+  },
+  currentWorkoutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  currentWorkoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flex: 1,
+  },
+  currentWorkoutIconContainer: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(26, 141, 255, 0.15)',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currentWorkoutInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  currentWorkoutClient: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  currentWorkoutDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  currentWorkoutTime: {
+    fontSize: 14,
+    color: '#5b6f92',
+    fontWeight: '600',
+  },
+  currentWorkoutBadge: {
+    backgroundColor: '#1a8dff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  currentWorkoutBadgeText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   quickActions: {
     gap: 16,
