@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Trash2, Save, Check, Minus } from 'lucide-react-native';
+import { ArrowLeft, Check, Square } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
-interface Exercise {
+interface ExerciseSet {
   id?: string;
+  set_number: number;
+  reps_completed: number;
+  weight_used: number;
+  completed: boolean;
+}
+
+interface Exercise {
   exercise_name: string;
-  sets: number;
-  reps: number;
-  weight: number;
+  total_sets: number;
+  default_reps: number;
+  default_weight: number;
   notes: string;
   order_index: number;
   section?: string;
+  sets: ExerciseSet[];
 }
 
 interface Session {
@@ -34,11 +42,9 @@ interface WorkoutTemplate {
 export default function CurrentWorkoutScreen() {
   const { sessionId } = useLocalSearchParams();
   const [session, setSession] = useState<Session | null>(null);
-  const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [template, setTemplate] = useState<WorkoutTemplate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -61,67 +67,71 @@ export default function CurrentWorkoutScreen() {
         .eq('id', sessionId)
         .maybeSingle();
 
-      if (sessionData) {
-        setSession(sessionData);
+      if (!sessionData) {
+        setLoading(false);
+        return;
+      }
 
-        if (sessionData.workout_template_id) {
-          const { data: templateData } = await supabase
-            .from('workout_templates')
-            .select('id, name, description')
-            .eq('id', sessionData.workout_template_id)
-            .maybeSingle();
+      setSession(sessionData);
 
-          if (templateData) {
-            setTemplate(templateData);
-          }
-        }
-
-        const { data: existingWorkout } = await supabase
-          .from('workouts')
-          .select('id')
-          .eq('session_id', sessionId)
+      if (sessionData.workout_template_id) {
+        const { data: templateData } = await supabase
+          .from('workout_templates')
+          .select('id, name, description')
+          .eq('id', sessionData.workout_template_id)
           .maybeSingle();
 
-        if (existingWorkout) {
-          setWorkoutId(existingWorkout.id);
+        if (templateData) {
+          setTemplate(templateData);
+        }
 
-          const { data: exerciseData } = await supabase
-            .from('workout_exercises')
+        const { data: templateExercises } = await supabase
+          .from('template_exercises')
+          .select('*')
+          .eq('template_id', sessionData.workout_template_id)
+          .order('order_index');
+
+        if (templateExercises) {
+          const { data: existingSets } = await supabase
+            .from('session_exercise_sets')
             .select('*')
-            .eq('workout_id', existingWorkout.id)
-            .order('order_index');
+            .eq('session_id', sessionData.id);
 
-          if (exerciseData) {
-            setExercises(exerciseData.map(ex => ({
-              id: ex.id,
-              exercise_name: ex.exercise_name,
-              sets: ex.sets,
-              reps: ex.reps,
-              weight: ex.weight,
-              notes: ex.notes || '',
-              order_index: ex.order_index,
-            })));
-          }
-        } else if (sessionData.workout_template_id) {
-          const { data: templateExercises } = await supabase
-            .from('template_exercises')
-            .select('*')
-            .eq('template_id', sessionData.workout_template_id)
-            .order('order_index');
+          const exercisesWithSets: Exercise[] = templateExercises.map((ex) => {
+            const defaultReps = typeof ex.reps === 'string' && ex.reps.includes('-')
+              ? parseInt(ex.reps.split('-')[0])
+              : parseInt(ex.reps) || 10;
 
-          if (templateExercises) {
-            setExercises(templateExercises.map(ex => ({
+            const sets: ExerciseSet[] = [];
+            for (let i = 1; i <= ex.sets; i++) {
+              const existingSet = existingSets?.find(
+                s => s.exercise_name === ex.exercise_name &&
+                     s.set_number === i &&
+                     s.order_index === ex.order_index
+              );
+
+              sets.push({
+                id: existingSet?.id,
+                set_number: i,
+                reps_completed: existingSet?.reps_completed ?? defaultReps,
+                weight_used: existingSet?.weight_used ?? ex.weight ?? 0,
+                completed: existingSet?.completed ?? false,
+              });
+            }
+
+            return {
               exercise_name: ex.exercise_name,
-              sets: ex.sets,
-              reps: typeof ex.reps === 'string' && ex.reps.includes('-')
-                ? parseInt(ex.reps.split('-')[0])
-                : parseInt(ex.reps) || 10,
-              weight: ex.weight || 0,
+              total_sets: ex.sets,
+              default_reps: defaultReps,
+              default_weight: ex.weight || 0,
               notes: ex.notes || '',
               order_index: ex.order_index,
               section: ex.section,
-            })));
-          }
+              sets,
+            };
+          });
+
+          setExercises(exercisesWithSets);
         }
       }
     } catch (error) {
@@ -131,35 +141,26 @@ export default function CurrentWorkoutScreen() {
     }
   };
 
-  const addExercise = () => {
-    const newExercise: Exercise = {
-      exercise_name: '',
-      sets: 3,
-      reps: 10,
-      weight: 0,
-      notes: '',
-      order_index: exercises.length,
-    };
-    setExercises([...exercises, newExercise]);
-  };
-
-  const removeExercise = (index: number) => {
-    const newExercises = exercises.filter((_, i) => i !== index);
-    setExercises(newExercises.map((ex, i) => ({ ...ex, order_index: i })));
-  };
-
-  const updateExercise = (index: number, field: keyof Exercise, value: string | number) => {
+  const toggleSetCompletion = (exerciseIndex: number, setIndex: number) => {
     const newExercises = [...exercises];
-    newExercises[index] = { ...newExercises[index], [field]: value };
+    const currentSet = newExercises[exerciseIndex].sets[setIndex];
+    currentSet.completed = !currentSet.completed;
     setExercises(newExercises);
     triggerAutoSave();
   };
 
-  const incrementValue = (index: number, field: 'sets' | 'reps' | 'weight', increment: number) => {
+  const updateSetReps = (exerciseIndex: number, setIndex: number, reps: string) => {
     const newExercises = [...exercises];
-    const currentValue = newExercises[index][field];
-    const newValue = Math.max(0, currentValue + increment);
-    newExercises[index] = { ...newExercises[index], [field]: newValue };
+    const repsNum = parseInt(reps) || 0;
+    newExercises[exerciseIndex].sets[setIndex].reps_completed = repsNum;
+    setExercises(newExercises);
+    triggerAutoSave();
+  };
+
+  const updateSetWeight = (exerciseIndex: number, setIndex: number, weight: string) => {
+    const newExercises = [...exercises];
+    const weightNum = parseFloat(weight) || 0;
+    newExercises[exerciseIndex].sets[setIndex].weight_used = weightNum;
     setExercises(newExercises);
     triggerAutoSave();
   };
@@ -170,79 +171,42 @@ export default function CurrentWorkoutScreen() {
     }
     const timer = setTimeout(() => {
       autoSaveWorkout();
-    }, 1000);
+    }, 800);
     setAutoSaveTimer(timer);
   };
 
   const autoSaveWorkout = async () => {
-    if (!session || exercises.some(ex => !ex.exercise_name.trim())) {
-      return;
-    }
+    if (!session) return;
 
     try {
-      let currentWorkoutId = workoutId;
-
-      if (!currentWorkoutId) {
-        const { data: newWorkout, error: workoutError } = await supabase
-          .from('workouts')
-          .insert({
-            client_id: session.client_id,
-            session_id: session.id,
-            date: session.date,
-          })
-          .select('id')
-          .single();
-
-        if (workoutError) throw workoutError;
-        currentWorkoutId = newWorkout.id;
-        setWorkoutId(currentWorkoutId);
-      }
-
       const { error: deleteError } = await supabase
-        .from('workout_exercises')
+        .from('session_exercise_sets')
         .delete()
-        .eq('workout_id', currentWorkoutId);
+        .eq('session_id', session.id);
 
       if (deleteError) throw deleteError;
 
-      const exercisesToInsert = exercises.map(ex => ({
-        workout_id: currentWorkoutId,
-        exercise_name: ex.exercise_name,
-        sets: ex.sets,
-        reps: ex.reps,
-        weight: ex.weight,
-        notes: ex.notes,
-        order_index: ex.order_index,
-      }));
+      const setsToInsert = exercises.flatMap(exercise =>
+        exercise.sets.map(set => ({
+          session_id: session.id,
+          exercise_name: exercise.exercise_name,
+          set_number: set.set_number,
+          reps_completed: set.reps_completed,
+          weight_used: set.weight_used,
+          completed: set.completed,
+          order_index: exercise.order_index,
+        }))
+      );
 
-      const { error: insertError } = await supabase
-        .from('workout_exercises')
-        .insert(exercisesToInsert);
+      if (setsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('session_exercise_sets')
+          .insert(setsToInsert);
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
     } catch (error) {
       console.error('Error auto-saving workout:', error);
-    }
-  };
-
-  const saveWorkout = async () => {
-    if (!session) return;
-
-    if (exercises.some(ex => !ex.exercise_name.trim())) {
-      Alert.alert('Validation Error', 'Please enter a name for all exercises');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await autoSaveWorkout();
-      Alert.alert('Success', 'Workout saved successfully');
-      router.back();
-    } catch (error) {
-      console.error('Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -252,6 +216,15 @@ export default function CurrentWorkoutScreen() {
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const getCompletionStats = () => {
+    const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+    const completedSets = exercises.reduce(
+      (sum, ex) => sum + ex.sets.filter(s => s.completed).length,
+      0
+    );
+    return { totalSets, completedSets };
   };
 
   if (loading) {
@@ -273,6 +246,9 @@ export default function CurrentWorkoutScreen() {
     );
   }
 
+  const { totalSets, completedSets } = getCompletionStats();
+  const progressPercentage = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -287,18 +263,7 @@ export default function CurrentWorkoutScreen() {
           <Text style={styles.headerTitle}>Current Workout</Text>
           <Text style={styles.headerSubtitle}>{session.client_name}</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.headerButton, styles.saveButton]}
-          onPress={saveWorkout}
-          disabled={saving}
-          activeOpacity={0.7}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Save size={24} color="#ffffff" strokeWidth={2} />
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerButton} />
       </View>
 
       <View style={styles.sessionInfo}>
@@ -310,141 +275,95 @@ export default function CurrentWorkoutScreen() {
             <Text style={styles.templateBadgeText}>{template.name}</Text>
           </View>
         )}
+        {totalSets > 0 && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${progressPercentage}%` }]} />
+            </View>
+            <Text style={styles.progressText}>
+              {completedSets} / {totalSets} sets completed
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {exercises.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No exercises added yet</Text>
+            <Text style={styles.emptyStateText}>No workout template assigned</Text>
             <Text style={styles.emptyStateSubtext}>
-              {template ? 'No template exercises found' : 'Tap the + button below to add your first exercise'}
+              Assign a workout template to this session to get started
             </Text>
           </View>
         ) : (
-          exercises.map((exercise, index) => (
-            <View key={index} style={styles.exerciseCard}>
+          exercises.map((exercise, exerciseIndex) => (
+            <View key={exerciseIndex} style={styles.exerciseCard}>
               <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseHeaderLeft}>
-                  <Text style={styles.exerciseNumber}>{index + 1}</Text>
-                  {exercise.section && (
-                    <View style={[
-                      styles.sectionBadge,
-                      exercise.section === 'warm-up' && styles.sectionBadgeWarmup,
-                      exercise.section === 'cooldown' && styles.sectionBadgeCooldown,
-                    ]}>
-                      <Text style={styles.sectionBadgeText}>{exercise.section}</Text>
+                  <Text style={styles.exerciseNumber}>{exerciseIndex + 1}</Text>
+                  <View>
+                    <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
+                    {exercise.section && (
+                      <View style={[
+                        styles.sectionBadge,
+                        exercise.section === 'warm-up' && styles.sectionBadgeWarmup,
+                        exercise.section === 'cooldown' && styles.sectionBadgeCooldown,
+                      ]}>
+                        <Text style={styles.sectionBadgeText}>{exercise.section}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              {exercise.notes && (
+                <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
+              )}
+
+              <View style={styles.setsContainer}>
+                {exercise.sets.map((set, setIndex) => (
+                  <View key={setIndex} style={styles.setRow}>
+                    <TouchableOpacity
+                      style={styles.checkbox}
+                      onPress={() => toggleSetCompletion(exerciseIndex, setIndex)}
+                      activeOpacity={0.7}
+                    >
+                      {set.completed ? (
+                        <View style={styles.checkboxChecked}>
+                          <Check size={16} color="#ffffff" strokeWidth={3} />
+                        </View>
+                      ) : (
+                        <Square size={24} color="#5b6f92" strokeWidth={2} />
+                      )}
+                    </TouchableOpacity>
+
+                    <Text style={styles.setLabel}>Set {set.set_number}</Text>
+
+                    <View style={styles.setInputGroup}>
+                      <Text style={styles.setInputLabel}>Reps</Text>
+                      <TextInput
+                        style={styles.setInput}
+                        keyboardType="number-pad"
+                        value={set.reps_completed.toString()}
+                        onChangeText={(text) => updateSetReps(exerciseIndex, setIndex, text)}
+                      />
                     </View>
-                  )}
-                </View>
-                <TouchableOpacity
-                  onPress={() => removeExercise(index)}
-                  activeOpacity={0.7}
-                  style={styles.deleteButton}
-                >
-                  <Trash2 size={18} color="#ef4444" strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Exercise Name</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Bench Press"
-                  placeholderTextColor="#5b6f92"
-                  value={exercise.exercise_name}
-                  onChangeText={(text) => updateExercise(index, 'exercise_name', text)}
-                />
-              </View>
-
-              <View style={styles.metricsContainer}>
-                <View style={styles.counterGroup}>
-                  <Text style={styles.counterLabel}>SETS</Text>
-                  <View style={styles.counterControl}>
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => incrementValue(index, 'sets', -1)}
-                      activeOpacity={0.7}
-                    >
-                      <Minus size={20} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
-                    <Text style={styles.counterValue}>{exercise.sets}</Text>
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => incrementValue(index, 'sets', 1)}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={20} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
+                    <View style={styles.setInputGroup}>
+                      <Text style={styles.setInputLabel}>Weight</Text>
+                      <TextInput
+                        style={styles.setInput}
+                        keyboardType="decimal-pad"
+                        value={set.weight_used.toString()}
+                        onChangeText={(text) => updateSetWeight(exerciseIndex, setIndex, text)}
+                      />
+                    </View>
                   </View>
-                </View>
-
-                <View style={styles.counterGroup}>
-                  <Text style={styles.counterLabel}>REPS</Text>
-                  <View style={styles.counterControl}>
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => incrementValue(index, 'reps', -1)}
-                      activeOpacity={0.7}
-                    >
-                      <Minus size={20} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
-                    <Text style={styles.counterValue}>{exercise.reps}</Text>
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => incrementValue(index, 'reps', 1)}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={20} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.counterGroup}>
-                  <Text style={styles.counterLabel}>WEIGHT (LBS)</Text>
-                  <View style={styles.counterControl}>
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => incrementValue(index, 'weight', -5)}
-                      activeOpacity={0.7}
-                    >
-                      <Minus size={20} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
-                    <Text style={styles.counterValue}>{exercise.weight}</Text>
-                    <TouchableOpacity
-                      style={styles.counterButton}
-                      onPress={() => incrementValue(index, 'weight', 5)}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={20} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Notes</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Add notes (optional)"
-                  placeholderTextColor="#5b6f92"
-                  multiline
-                  numberOfLines={2}
-                  value={exercise.notes}
-                  onChangeText={(text) => updateExercise(index, 'notes', text)}
-                />
+                ))}
               </View>
             </View>
           ))
         )}
-
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={addExercise}
-          activeOpacity={0.8}
-        >
-          <Plus size={24} color="#ffffff" strokeWidth={2.5} />
-          <Text style={styles.addButtonText}>Add Exercise</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -478,9 +397,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  saveButton: {
-    backgroundColor: '#1a8dff',
-  },
   headerContent: {
     flex: 1,
     alignItems: 'center',
@@ -504,7 +420,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 8,
+    gap: 12,
   },
   sessionTime: {
     fontSize: 14,
@@ -521,6 +437,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#22c55e',
     fontWeight: '600',
+  },
+  progressContainer: {
+    width: '100%',
+    gap: 8,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#22c55e',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#5b6f92',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   content: {
     flex: 1,
@@ -555,14 +492,15 @@ const styles = StyleSheet.create({
   },
   exerciseHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   exerciseHeaderLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
+    flex: 1,
   },
   exerciseNumber: {
     fontSize: 22,
@@ -571,11 +509,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     minWidth: 30,
   },
+  exerciseName: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
   sectionBadge: {
     backgroundColor: 'rgba(26, 141, 255, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   sectionBadgeWarmup: {
     backgroundColor: 'rgba(251, 191, 36, 0.15)',
@@ -584,99 +530,72 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(139, 92, 246, 0.15)',
   },
   sectionBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#1a8dff',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
+  exerciseNotes: {
     fontSize: 13,
     color: '#5b6f92',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  setsContainer: {
+    gap: 10,
+  },
+  setRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#22c55e',
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setLabel: {
+    fontSize: 14,
+    color: '#ffffff',
     fontWeight: '600',
-    marginBottom: 8,
+    minWidth: 50,
+  },
+  setInputGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  setInputLabel: {
+    fontSize: 10,
+    color: '#5b6f92',
+    fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  input: {
-    backgroundColor: '#050814',
+  setInput: {
+    backgroundColor: '#0b0f1e',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 15,
     color: '#ffffff',
-    fontWeight: '500',
-  },
-  textArea: {
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  metricsContainer: {
-    gap: 16,
-    marginBottom: 16,
-  },
-  counterGroup: {
-    gap: 8,
-  },
-  counterLabel: {
-    fontSize: 11,
-    color: '#5b6f92',
     fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  counterControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#050814',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
-    padding: 8,
-  },
-  counterButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: '#1a8dff',
-  },
-  counterValue: {
-    fontSize: 28,
-    color: '#ffffff',
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    minWidth: 60,
     textAlign: 'center',
-  },
-  addButton: {
-    backgroundColor: '#1a8dff',
-    borderRadius: 16,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  addButtonText: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '700',
-    letterSpacing: -0.2,
   },
   errorText: {
     fontSize: 16,
