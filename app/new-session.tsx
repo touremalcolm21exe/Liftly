@@ -19,8 +19,8 @@ export default function NewSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:00');
+  const [startTime, setStartTime] = useState('9:00 AM');
+  const [endTime, setEndTime] = useState('10:00 AM');
   const [sessionName, setSessionName] = useState('');
   const [clientId, setClientId] = useState('');
   const [location, setLocation] = useState('');
@@ -112,13 +112,31 @@ export default function NewSessionScreen() {
   };
 
   const validateTimeFormat = (time: string): boolean => {
-    const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM|am|pm)$/i;
     return timeRegex.test(time);
+  };
+
+  const convertTo24Hour = (time: string): string => {
+    const match = time.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM|am|pm)$/i);
+    if (!match) return '';
+
+    let hours = parseInt(match[1]);
+    const minutes = match[2];
+    const period = match[3].toUpperCase();
+
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
   };
 
   const parseTime = (time: string): { hours: number; minutes: number } | null => {
     if (!validateTimeFormat(time)) return null;
-    const [hours, minutes] = time.split(':').map(Number);
+    const time24 = convertTo24Hour(time);
+    const [hours, minutes] = time24.split(':').map(Number);
     return { hours, minutes };
   };
 
@@ -134,13 +152,13 @@ export default function NewSessionScreen() {
 
   const handleStartTimeBlur = () => {
     if (startTime && !validateTimeFormat(startTime)) {
-      setStartTimeError('Invalid format. Use HH:MM (e.g., 09:00)');
+      setStartTimeError('Invalid format. Use H:MM AM/PM (e.g., 9:00 AM)');
     }
   };
 
   const handleEndTimeBlur = () => {
     if (endTime && !validateTimeFormat(endTime)) {
-      setEndTimeError('Invalid format. Use HH:MM (e.g., 18:30)');
+      setEndTimeError('Invalid format. Use H:MM AM/PM (e.g., 6:30 PM)');
     }
   };
 
@@ -173,12 +191,12 @@ export default function NewSessionScreen() {
     let hasError = false;
 
     if (!validateTimeFormat(startTime)) {
-      setStartTimeError('Invalid format. Use HH:MM (e.g., 09:00)');
+      setStartTimeError('Invalid format. Use H:MM AM/PM (e.g., 9:00 AM)');
       hasError = true;
     }
 
     if (!validateTimeFormat(endTime)) {
-      setEndTimeError('Invalid format. Use HH:MM (e.g., 18:30)');
+      setEndTimeError('Invalid format. Use H:MM AM/PM (e.g., 6:30 PM)');
       hasError = true;
     }
 
@@ -192,8 +210,9 @@ export default function NewSessionScreen() {
 
     setSaving(true);
     try {
-      const formattedTime = `${startTime}:00`;
-      const endTimeFormatted = calculateEndTime(startTime, duration);
+      const startTime24 = convertTo24Hour(startTime);
+      const formattedTime = `${startTime24}:00`;
+      const endTimeFormatted = calculateEndTime(startTime24, duration);
       const dateStr = selectedDate.toISOString().split('T')[0];
       const finalName = sessionName.trim() || clients.find(c => c.id === clientId)?.name || '';
 
@@ -406,13 +425,13 @@ export default function NewSessionScreen() {
           <Text style={styles.fieldLabel}>Start time</Text>
           <TextInput
             style={[styles.timeInput, startTimeError && styles.timeInputError]}
-            placeholder="09:00"
+            placeholder="9:00 AM"
             placeholderTextColor="#5b6f92"
             value={startTime}
             onChangeText={handleStartTimeChange}
             onBlur={handleStartTimeBlur}
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
+            keyboardType="default"
+            maxLength={8}
           />
           {startTimeError ? (
             <Text style={styles.errorText}>{startTimeError}</Text>
@@ -423,13 +442,13 @@ export default function NewSessionScreen() {
           <Text style={styles.fieldLabel}>End time</Text>
           <TextInput
             style={[styles.timeInput, endTimeError && styles.timeInputError]}
-            placeholder="18:30"
+            placeholder="6:30 PM"
             placeholderTextColor="#5b6f92"
             value={endTime}
             onChangeText={handleEndTimeChange}
             onBlur={handleEndTimeBlur}
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
+            keyboardType="default"
+            maxLength={8}
           />
           {endTimeError ? (
             <Text style={styles.errorText}>{endTimeError}</Text>
