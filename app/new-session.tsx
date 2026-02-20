@@ -19,8 +19,10 @@ export default function NewSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [startTime, setStartTime] = useState('9:00 AM');
-  const [endTime, setEndTime] = useState('10:00 AM');
+  const [startTimeValue, setStartTimeValue] = useState('9:00');
+  const [startTimePeriod, setStartTimePeriod] = useState<'AM' | 'PM'>('AM');
+  const [endTimeValue, setEndTimeValue] = useState('10:00');
+  const [endTimePeriod, setEndTimePeriod] = useState<'AM' | 'PM'>('AM');
   const [sessionName, setSessionName] = useState('');
   const [clientId, setClientId] = useState('');
   const [location, setLocation] = useState('');
@@ -112,17 +114,16 @@ export default function NewSessionScreen() {
   };
 
   const validateTimeFormat = (time: string): boolean => {
-    const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM|am|pm)$/i;
+    const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])$/;
     return timeRegex.test(time);
   };
 
-  const convertTo24Hour = (time: string): string => {
-    const match = time.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM|am|pm)$/i);
+  const convertTo24Hour = (timeValue: string, period: 'AM' | 'PM'): string => {
+    const match = timeValue.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])$/);
     if (!match) return '';
 
     let hours = parseInt(match[1]);
     const minutes = match[2];
-    const period = match[3].toUpperCase();
 
     if (period === 'PM' && hours !== 12) {
       hours += 12;
@@ -133,38 +134,38 @@ export default function NewSessionScreen() {
     return `${String(hours).padStart(2, '0')}:${minutes}`;
   };
 
-  const parseTime = (time: string): { hours: number; minutes: number } | null => {
-    if (!validateTimeFormat(time)) return null;
-    const time24 = convertTo24Hour(time);
+  const parseTime = (timeValue: string, period: 'AM' | 'PM'): { hours: number; minutes: number } | null => {
+    if (!validateTimeFormat(timeValue)) return null;
+    const time24 = convertTo24Hour(timeValue, period);
     const [hours, minutes] = time24.split(':').map(Number);
     return { hours, minutes };
   };
 
   const handleStartTimeChange = (text: string) => {
-    setStartTime(text);
+    setStartTimeValue(text);
     setStartTimeError('');
   };
 
   const handleEndTimeChange = (text: string) => {
-    setEndTime(text);
+    setEndTimeValue(text);
     setEndTimeError('');
   };
 
   const handleStartTimeBlur = () => {
-    if (startTime && !validateTimeFormat(startTime)) {
-      setStartTimeError('Invalid format. Use H:MM AM/PM (e.g., 9:00 AM)');
+    if (startTimeValue && !validateTimeFormat(startTimeValue)) {
+      setStartTimeError('Invalid format. Use H:MM (e.g., 9:00)');
     }
   };
 
   const handleEndTimeBlur = () => {
-    if (endTime && !validateTimeFormat(endTime)) {
-      setEndTimeError('Invalid format. Use H:MM AM/PM (e.g., 6:30 PM)');
+    if (endTimeValue && !validateTimeFormat(endTimeValue)) {
+      setEndTimeError('Invalid format. Use H:MM (e.g., 6:30)');
     }
   };
 
   const calculateDuration = (): number | null => {
-    const start = parseTime(startTime);
-    const end = parseTime(endTime);
+    const start = parseTime(startTimeValue, startTimePeriod);
+    const end = parseTime(endTimeValue, endTimePeriod);
 
     if (!start || !end) return null;
 
@@ -190,13 +191,13 @@ export default function NewSessionScreen() {
   const handleSave = async () => {
     let hasError = false;
 
-    if (!validateTimeFormat(startTime)) {
-      setStartTimeError('Invalid format. Use H:MM AM/PM (e.g., 9:00 AM)');
+    if (!validateTimeFormat(startTimeValue)) {
+      setStartTimeError('Invalid format. Use H:MM (e.g., 9:00)');
       hasError = true;
     }
 
-    if (!validateTimeFormat(endTime)) {
-      setEndTimeError('Invalid format. Use H:MM AM/PM (e.g., 6:30 PM)');
+    if (!validateTimeFormat(endTimeValue)) {
+      setEndTimeError('Invalid format. Use H:MM (e.g., 6:30)');
       hasError = true;
     }
 
@@ -210,7 +211,7 @@ export default function NewSessionScreen() {
 
     setSaving(true);
     try {
-      const startTime24 = convertTo24Hour(startTime);
+      const startTime24 = convertTo24Hour(startTimeValue, startTimePeriod);
       const formattedTime = `${startTime24}:00`;
       const endTimeFormatted = calculateEndTime(startTime24, duration);
       const dateStr = selectedDate.toISOString().split('T')[0];
@@ -278,7 +279,7 @@ export default function NewSessionScreen() {
     );
   };
 
-  const isFormValid = clientId && location.trim() && validateTimeFormat(startTime) && validateTimeFormat(endTime);
+  const isFormValid = clientId && location.trim() && validateTimeFormat(startTimeValue) && validateTimeFormat(endTimeValue);
 
   if (loading) {
     return (
@@ -422,37 +423,101 @@ export default function NewSessionScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>Start time</Text>
-          <TextInput
-            style={[styles.timeInput, startTimeError && styles.timeInputError]}
-            placeholder="9:00 AM"
-            placeholderTextColor="#5b6f92"
-            value={startTime}
-            onChangeText={handleStartTimeChange}
-            onBlur={handleStartTimeBlur}
-            keyboardType="default"
-            maxLength={8}
-          />
-          {startTimeError ? (
-            <Text style={styles.errorText}>{startTimeError}</Text>
-          ) : null}
-        </View>
+          <Text style={styles.sectionLabel}>Time</Text>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>End time</Text>
-          <TextInput
-            style={[styles.timeInput, endTimeError && styles.timeInputError]}
-            placeholder="6:30 PM"
-            placeholderTextColor="#5b6f92"
-            value={endTime}
-            onChangeText={handleEndTimeChange}
-            onBlur={handleEndTimeBlur}
-            keyboardType="default"
-            maxLength={8}
-          />
-          {endTimeError ? (
-            <Text style={styles.errorText}>{endTimeError}</Text>
-          ) : null}
+          <View style={styles.timeSection}>
+            <Text style={styles.timeLabel}>Start time</Text>
+            <View style={styles.timeInputRow}>
+              <TextInput
+                style={[styles.timeValueInput, startTimeError && styles.timeInputError]}
+                placeholder="9:00"
+                placeholderTextColor="#5b6f92"
+                value={startTimeValue}
+                onChangeText={handleStartTimeChange}
+                onBlur={handleStartTimeBlur}
+                keyboardType="numbers-and-punctuation"
+                maxLength={5}
+              />
+              <View style={styles.periodToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.periodButton,
+                    styles.periodButtonLeft,
+                    startTimePeriod === 'AM' && styles.periodButtonActive
+                  ]}
+                  onPress={() => setStartTimePeriod('AM')}
+                >
+                  <Text style={[
+                    styles.periodButtonText,
+                    startTimePeriod === 'AM' && styles.periodButtonTextActive
+                  ]}>AM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.periodButton,
+                    styles.periodButtonRight,
+                    startTimePeriod === 'PM' && styles.periodButtonActive
+                  ]}
+                  onPress={() => setStartTimePeriod('PM')}
+                >
+                  <Text style={[
+                    styles.periodButtonText,
+                    startTimePeriod === 'PM' && styles.periodButtonTextActive
+                  ]}>PM</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            {startTimeError ? (
+              <Text style={styles.errorText}>{startTimeError}</Text>
+            ) : null}
+          </View>
+
+          <View style={styles.timeSection}>
+            <Text style={styles.timeLabel}>End time</Text>
+            <View style={styles.timeInputRow}>
+              <TextInput
+                style={[styles.timeValueInput, endTimeError && styles.timeInputError]}
+                placeholder="10:00"
+                placeholderTextColor="#5b6f92"
+                value={endTimeValue}
+                onChangeText={handleEndTimeChange}
+                onBlur={handleEndTimeBlur}
+                keyboardType="numbers-and-punctuation"
+                maxLength={5}
+              />
+              <View style={styles.periodToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.periodButton,
+                    styles.periodButtonLeft,
+                    endTimePeriod === 'AM' && styles.periodButtonActive
+                  ]}
+                  onPress={() => setEndTimePeriod('AM')}
+                >
+                  <Text style={[
+                    styles.periodButtonText,
+                    endTimePeriod === 'AM' && styles.periodButtonTextActive
+                  ]}>AM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.periodButton,
+                    styles.periodButtonRight,
+                    endTimePeriod === 'PM' && styles.periodButtonActive
+                  ]}
+                  onPress={() => setEndTimePeriod('PM')}
+                >
+                  <Text style={[
+                    styles.periodButtonText,
+                    endTimePeriod === 'PM' && styles.periodButtonTextActive
+                  ]}>PM</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            {endTimeError ? (
+              <Text style={styles.errorText}>{endTimeError}</Text>
+            ) : null}
+          </View>
         </View>
       </ScrollView>
 
@@ -605,6 +670,73 @@ const styles = StyleSheet.create({
   timeInputError: {
     borderColor: '#ef4444',
     borderWidth: 2,
+  },
+  sectionLabel: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  timeSection: {
+    marginBottom: 20,
+  },
+  timeLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  timeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  timeValueInput: {
+    flex: 1,
+    fontSize: 20,
+    color: '#ffffff',
+    fontWeight: '400',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  periodToggle: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+  },
+  periodButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodButtonLeft: {
+    borderTopLeftRadius: 11,
+    borderBottomLeftRadius: 11,
+  },
+  periodButtonRight: {
+    borderTopRightRadius: 11,
+    borderBottomRightRadius: 11,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  periodButtonActive: {
+    backgroundColor: '#1a8dff',
+  },
+  periodButtonText: {
+    fontSize: 16,
+    color: '#9ca3af',
+    fontWeight: '600',
+  },
+  periodButtonTextActive: {
+    color: '#ffffff',
   },
   errorText: {
     fontSize: 13,
