@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Users, Calendar, Dumbbell, TrendingUp, Clock, MapPin, CheckCircle2 } from 'lucide-react-native';
+import { Users, Calendar, Dumbbell, TrendingUp, Clock, MapPin } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -169,68 +169,46 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {todaySessions.length > 0 && (
+{todaySessions.filter(session => !(session.confirmed_by_trainer && session.completed_at)).length > 0 && (
         <View style={styles.sessionsSection}>
           <Text style={styles.sectionTitle}>Today's Sessions</Text>
-          {todaySessions.map((session) => {
-            const isCompleted = session.confirmed_by_trainer && session.completed_at;
-            return (
+          {todaySessions
+            .filter(session => !(session.confirmed_by_trainer && session.completed_at))
+            .map((session) => (
               <TouchableOpacity
                 key={session.id}
-                style={[
-                  styles.sessionCard,
-                  isCompleted && styles.sessionCardCompleted
-                ]}
+                style={styles.sessionCard}
                 onPress={() => router.push(`/current-workout?sessionId=${session.id}`)}
                 activeOpacity={0.7}
               >
                 <View style={styles.sessionHeader}>
                   <View style={styles.sessionClientRow}>
-                    {isCompleted && (
-                      <CheckCircle2 size={20} color="#22c55e" strokeWidth={2.5} />
-                    )}
-                    <Text style={[
-                      styles.sessionClient,
-                      isCompleted && styles.sessionClientCompleted
-                    ]}>
+                    <Text style={styles.sessionClient}>
                       {session.client_name}
                     </Text>
                   </View>
-                  <View style={[
-                    styles.statusBadge,
-                    isCompleted && styles.statusBadgeCompleted
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      isCompleted && styles.statusTextCompleted
-                    ]}>
-                      {isCompleted ? 'Completed' : 'Scheduled'}
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>
+                      Scheduled
                     </Text>
                   </View>
                 </View>
                 <View style={styles.sessionDetails}>
                   <View style={styles.sessionDetail}>
-                    <Clock size={16} color={isCompleted ? '#3d4a5f' : '#5b6f92'} strokeWidth={2} />
-                    <Text style={[
-                      styles.sessionDetailText,
-                      isCompleted && styles.sessionDetailTextCompleted
-                    ]}>
+                    <Clock size={16} color="#5b6f92" strokeWidth={2} />
+                    <Text style={styles.sessionDetailText}>
                       {formatTime(session.start_time)} - {formatTime(session.end_time)}
                     </Text>
                   </View>
                   <View style={styles.sessionDetail}>
-                    <MapPin size={16} color={isCompleted ? '#3d4a5f' : '#5b6f92'} strokeWidth={2} />
-                    <Text style={[
-                      styles.sessionDetailText,
-                      isCompleted && styles.sessionDetailTextCompleted
-                    ]}>
+                    <MapPin size={16} color="#5b6f92" strokeWidth={2} />
+                    <Text style={styles.sessionDetailText}>
                       {session.location}
                     </Text>
                   </View>
                 </View>
               </TouchableOpacity>
-            );
-          })}
+            ))}
         </View>
       )}
 
@@ -520,11 +498,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  sessionCardCompleted: {
-    backgroundColor: '#070a14',
-    borderColor: 'rgba(255, 255, 255, 0.04)',
-    opacity: 0.7,
-  },
   sessionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -542,25 +515,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.2,
   },
-  sessionClientCompleted: {
-    color: '#8b96ad',
-  },
   statusBadge: {
     backgroundColor: 'rgba(26, 141, 255, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  statusBadgeCompleted: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-  },
   statusText: {
     fontSize: 12,
     color: '#1a8dff',
     fontWeight: '600',
-  },
-  statusTextCompleted: {
-    color: '#22c55e',
   },
   sessionDetails: {
     gap: 8,
@@ -574,8 +538,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5b6f92',
     fontWeight: '500',
-  },
-  sessionDetailTextCompleted: {
-    color: '#3d4a5f',
   },
 });
