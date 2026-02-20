@@ -167,6 +167,42 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {todaySessions.length > 0 && (
+        <View style={styles.sessionsSection}>
+          <Text style={styles.sectionTitle}>Today's Sessions</Text>
+          {todaySessions.map((session) => (
+            <View key={session.id} style={styles.sessionCard}>
+              <View style={styles.sessionHeader}>
+                <Text style={styles.sessionClient}>{session.client_name}</Text>
+                <View style={[
+                  styles.statusBadge,
+                  session.status === 'completed' && styles.statusBadgeCompleted
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    session.status === 'completed' && styles.statusTextCompleted
+                  ]}>
+                    {session.status === 'completed' ? 'Completed' : 'Scheduled'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.sessionDetails}>
+                <View style={styles.sessionDetail}>
+                  <Clock size={16} color="#5b6f92" strokeWidth={2} />
+                  <Text style={styles.sessionDetailText}>
+                    {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                  </Text>
+                </View>
+                <View style={styles.sessionDetail}>
+                  <MapPin size={16} color="#5b6f92" strokeWidth={2} />
+                  <Text style={styles.sessionDetailText}>{session.location}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {currentSession && (
         <View style={styles.currentWorkoutSection}>
           <Text style={styles.sectionTitle}>Current Workout</Text>
@@ -247,42 +283,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {todaySessions.length > 0 && (
-        <View style={styles.sessionsSection}>
-          <Text style={styles.sectionTitle}>Today's Sessions</Text>
-          {todaySessions.map((session) => (
-            <View key={session.id} style={styles.sessionCard}>
-              <View style={styles.sessionHeader}>
-                <Text style={styles.sessionClient}>{session.client_name}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  session.status === 'completed' && styles.statusBadgeCompleted
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    session.status === 'completed' && styles.statusTextCompleted
-                  ]}>
-                    {session.status === 'completed' ? 'Completed' : 'Scheduled'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.sessionDetails}>
-                <View style={styles.sessionDetail}>
-                  <Clock size={16} color="#5b6f92" strokeWidth={2} />
-                  <Text style={styles.sessionDetailText}>
-                    {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                  </Text>
-                </View>
-                <View style={styles.sessionDetail}>
-                  <MapPin size={16} color="#5b6f92" strokeWidth={2} />
-                  <Text style={styles.sessionDetailText}>{session.location}</Text>
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
     </ScrollView>
   );
 }
