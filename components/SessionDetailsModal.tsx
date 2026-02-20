@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import { X, User, MapPin, Clock, Calendar as CalendarIcon, Trash2, Timer, FileText, Dumbbell } from 'lucide-react-native';
+import { X, User, MapPin, Clock, Calendar as CalendarIcon, Trash2, Timer, FileText, Dumbbell, CheckCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 interface Session {
@@ -14,6 +14,8 @@ interface Session {
   duration_minutes?: number;
   notes?: string;
   workout_template_id?: string;
+  completed_at?: string | null;
+  confirmed_by_trainer?: boolean;
 }
 
 interface WorkoutTemplate {
@@ -33,6 +35,7 @@ export default function SessionDetailsModal({ visible, onClose, sessionId, onDel
   const [session, setSession] = useState<Session | null>(null);
   const [workoutTemplate, setWorkoutTemplate] = useState<WorkoutTemplate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (visible && sessionId) {
@@ -125,6 +128,38 @@ export default function SessionDetailsModal({ visible, onClose, sessionId, onDel
         },
       ]
     );
+  };
+
+  const handleConfirmWorkout = async () => {
+    if (!sessionId || !session) return;
+
+    setConfirming(true);
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          confirmed_by_trainer: true,
+        })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      setSession({
+        ...session,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        confirmed_by_trainer: true,
+      });
+
+      onDelete();
+    } catch (error) {
+      console.error('Error confirming workout:', error);
+      Alert.alert('Error', 'Failed to confirm workout. Please try again.');
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -247,12 +282,48 @@ export default function SessionDetailsModal({ visible, onClose, sessionId, onDel
               {session.status === 'scheduled' && (
                 <View style={styles.footer}>
                   <TouchableOpacity
+                    style={[styles.confirmButton, confirming && styles.confirmButtonDisabled]}
+                    onPress={handleConfirmWorkout}
+                    disabled={confirming}
+                  >
+                    {confirming ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <CheckCircle size={20} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.confirmButtonText}>Post-Workout Confirmation</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={handleDeleteSession}
+                    disabled={confirming}
                   >
                     <Trash2 size={20} color="#ef4444" strokeWidth={2} />
                     <Text style={styles.deleteButtonText}>Delete Session</Text>
                   </TouchableOpacity>
+                </View>
+              )}
+              {session.status === 'completed' && session.confirmed_by_trainer && (
+                <View style={styles.footer}>
+                  <View style={styles.completedBanner}>
+                    <CheckCircle size={24} color="#22c55e" strokeWidth={2} />
+                    <View style={styles.completedTextContainer}>
+                      <Text style={styles.completedTitle}>Workout Confirmed</Text>
+                      {session.completed_at && (
+                        <Text style={styles.completedTime}>
+                          Completed on {new Date(session.completed_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
                 </View>
               )}
             </>
@@ -394,8 +465,26 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
+    gap: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  confirmButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#22c55e',
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.6,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '700',
   },
   deleteButton: {
     flexDirection: 'row',
@@ -412,5 +501,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ef4444',
     fontWeight: '600',
+  },
+  completedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  completedTextContainer: {
+    flex: 1,
+  },
+  completedTitle: {
+    fontSize: 16,
+    color: '#22c55e',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  completedTime: {
+    fontSize: 13,
+    color: '#9ca3af',
+    fontWeight: '500',
   },
 });
