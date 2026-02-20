@@ -245,20 +245,10 @@ export default function CurrentWorkoutScreen() {
 
       if (error) throw error;
 
-      Alert.alert(
-        'Workout Complete',
-        'Great job! The workout has been marked as complete.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      router.push('/(tabs)');
     } catch (error) {
       console.error('Error completing workout:', error);
       Alert.alert('Error', 'Failed to complete workout. Please try again.');
-    } finally {
       setCompleting(false);
     }
   };
