@@ -78,7 +78,9 @@ export default function HomeScreen() {
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 5);
 
-        const scheduledSessions = sessions.filter(s => s.status === 'scheduled');
+        const scheduledSessions = sessions.filter(s =>
+          s.status === 'scheduled' && !(s.confirmed_by_trainer && s.completed_at)
+        );
 
         const inProgressSession = scheduledSessions.find(s => {
           return s.start_time <= currentTime && s.end_time >= currentTime;
