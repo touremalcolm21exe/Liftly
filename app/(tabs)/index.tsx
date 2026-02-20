@@ -171,7 +171,12 @@ export default function HomeScreen() {
         <View style={styles.sessionsSection}>
           <Text style={styles.sectionTitle}>Today's Sessions</Text>
           {todaySessions.map((session) => (
-            <View key={session.id} style={styles.sessionCard}>
+            <TouchableOpacity
+              key={session.id}
+              style={styles.sessionCard}
+              onPress={() => router.push(`/current-workout?sessionId=${session.id}`)}
+              activeOpacity={0.7}
+            >
               <View style={styles.sessionHeader}>
                 <Text style={styles.sessionClient}>{session.client_name}</Text>
                 <View style={[
@@ -198,7 +203,7 @@ export default function HomeScreen() {
                   <Text style={styles.sessionDetailText}>{session.location}</Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
