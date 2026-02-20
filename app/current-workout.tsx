@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check, Square } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +45,7 @@ export default function CurrentWorkoutScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [template, setTemplate] = useState<WorkoutTemplate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [completing, setCompleting] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -227,6 +228,41 @@ export default function CurrentWorkoutScreen() {
     return { totalSets, completedSets };
   };
 
+  const completeWorkout = async () => {
+    if (!session) return;
+
+    setCompleting(true);
+    try {
+      await autoSaveWorkout();
+
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          confirmed_by_trainer: true,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', session.id);
+
+      if (error) throw error;
+
+      Alert.alert(
+        'Workout Complete',
+        'Great job! The workout has been marked as complete.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error completing workout:', error);
+      Alert.alert('Error', 'Failed to complete workout. Please try again.');
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -365,6 +401,24 @@ export default function CurrentWorkoutScreen() {
           ))
         )}
       </ScrollView>
+
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity
+          style={[styles.completeButton, completing && styles.completeButtonDisabled]}
+          onPress={completeWorkout}
+          disabled={completing}
+          activeOpacity={0.8}
+        >
+          {completing ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <Check size={24} color="#ffffff" strokeWidth={2.5} />
+              <Text style={styles.completeButtonText}>Workout Complete</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -612,5 +666,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '600',
+  },
+  bottomContainer: {
+    backgroundColor: '#0b0f1e',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  completeButton: {
+    backgroundColor: '#22c55e',
+    borderRadius: 16,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  completeButtonDisabled: {
+    backgroundColor: '#5b6f92',
+  },
+  completeButtonText: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
 });
