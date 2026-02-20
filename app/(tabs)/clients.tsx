@@ -12,6 +12,7 @@ interface Client {
   email: string | null;
   phone: string | null;
   total_sessions: number;
+  completed_sessions: number;
 }
 
 export default function ClientsScreen() {
@@ -49,15 +50,30 @@ export default function ClientsScreen() {
         return;
       }
 
-      const { data } = await supabase
+      const { data: clientsData } = await supabase
         .from('clients')
         .select('id, name, email, phone, total_sessions')
         .eq('trainer_id', trainer.id)
         .order('name');
 
-      if (data) {
-        setClients(data);
-        setFilteredClients(data);
+      if (clientsData) {
+        const clientsWithCompletedSessions = await Promise.all(
+          clientsData.map(async (client) => {
+            const { count } = await supabase
+              .from('sessions')
+              .select('*', { count: 'exact', head: true })
+              .eq('client_id', client.id)
+              .eq('status', 'completed');
+
+            return {
+              ...client,
+              completed_sessions: count || 0,
+            };
+          })
+        );
+
+        setClients(clientsWithCompletedSessions);
+        setFilteredClients(clientsWithCompletedSessions);
       }
     } catch (error) {
       console.error('Error loading clients:', error);
@@ -166,7 +182,9 @@ export default function ClientsScreen() {
               </View>
               <View style={styles.clientDetails}>
                 <Text style={styles.clientName}>{client.name}</Text>
-                <Text style={styles.clientSessions}>{client.total_sessions} sessions completed</Text>
+                <Text style={styles.clientSessions}>
+                  {client.completed_sessions} {client.completed_sessions === 1 ? 'session' : 'sessions'} completed
+                </Text>
               </View>
             </View>
             <ChevronRight size={20} color="#5b6f92" strokeWidth={2} />
