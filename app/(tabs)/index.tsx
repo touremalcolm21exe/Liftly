@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
   const [currentSession, setCurrentSession] = useState<CurrentSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     loadTodaySessions();
@@ -42,6 +43,9 @@ export default function HomeScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const role = user.user_metadata?.role;
+      setUserRole(role);
 
       const { data: trainer } = await supabase
         .from('trainers')
@@ -247,16 +251,18 @@ export default function HomeScreen() {
 
       <View style={styles.quickActions}>
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/clients')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionIcon}>
-              <Users size={26} color="#1a8dff" strokeWidth={2} />
-            </View>
-            <Text style={styles.actionLabel}>Clients</Text>
-          </TouchableOpacity>
+          {userRole === 'trainer' && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/clients')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionIcon}>
+                <Users size={26} color="#1a8dff" strokeWidth={2} />
+              </View>
+              <Text style={styles.actionLabel}>Clients</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.actionButton}
@@ -268,9 +274,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.actionLabel}>Schedule</Text>
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => router.push('/workouts')}
@@ -281,18 +285,22 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.actionLabel}>Workouts</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/stats')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionIcon}>
-              <TrendingUp size={26} color="#1a8dff" strokeWidth={2} />
-            </View>
-            <Text style={styles.actionLabel}>Stats</Text>
-          </TouchableOpacity>
         </View>
+
+        {userRole === 'trainer' && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/stats')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionIcon}>
+                <TrendingUp size={26} color="#1a8dff" strokeWidth={2} />
+              </View>
+              <Text style={styles.actionLabel}>Stats</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
