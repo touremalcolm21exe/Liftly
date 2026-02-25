@@ -15,6 +15,12 @@ interface WorkoutTemplate {
   description: string | null;
 }
 
+interface SavedLocation {
+  id: string;
+  location_name: string;
+  use_count: number;
+}
+
 export default function NewSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -29,13 +35,17 @@ export default function NewSessionScreen() {
   const [workoutTemplateId, setWorkoutTemplateId] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
   const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [showClientPicker, setShowClientPicker] = useState(false);
   const [showWorkoutPicker, setShowWorkoutPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [workoutSearchQuery, setWorkoutSearchQuery] = useState('');
+  const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [startTimeError, setStartTimeError] = useState('');
   const [endTimeError, setEndTimeError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [trainerId, setTrainerId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -65,7 +75,9 @@ export default function NewSessionScreen() {
         return;
       }
 
-      const [clientsResult, templatesResult] = await Promise.all([
+      setTrainerId(trainer.id);
+
+      const [clientsResult, templatesResult, locationsResult] = await Promise.all([
         supabase
           .from('clients')
           .select('id, name')
@@ -75,7 +87,12 @@ export default function NewSessionScreen() {
           .from('workout_templates')
           .select('id, name, description')
           .eq('trainer_id', trainer.id)
-          .order('name')
+          .order('name'),
+        supabase
+          .from('saved_locations')
+          .select('id, location_name, use_count')
+          .eq('trainer_id', trainer.id)
+          .order('use_count', { ascending: false })
       ]);
 
       if (clientsResult.data) {
@@ -84,6 +101,10 @@ export default function NewSessionScreen() {
 
       if (templatesResult.data) {
         setWorkoutTemplates(templatesResult.data);
+      }
+
+      if (locationsResult.data) {
+        setSavedLocations(locationsResult.data);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -235,6 +256,7 @@ export default function NewSessionScreen() {
       const { error } = await supabase.from('sessions').insert(sessionData);
 
       if (!error) {
+        await saveOrUpdateLocation(location);
         router.back();
       }
     } catch (error) {
@@ -277,6 +299,56 @@ export default function NewSessionScreen() {
         template.name.toLowerCase().includes(query) ||
         (template.description && template.description.toLowerCase().includes(query))
     );
+  };
+
+  const getFilteredLocations = () => {
+    const query = locationSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return savedLocations;
+    }
+    return savedLocations.filter((loc) =>
+      loc.location_name.toLowerCase().includes(query)
+    );
+  };
+
+  const handleLocationSelect = (locationName: string) => {
+    setLocation(locationName);
+    setLocationSearchQuery('');
+    setShowLocationPicker(false);
+  };
+
+  const handleLocationSearchChange = (text: string) => {
+    setLocationSearchQuery(text);
+    setLocation(text);
+  };
+
+  const saveOrUpdateLocation = async (locationName: string) => {
+    if (!trainerId || !locationName.trim()) return;
+
+    try {
+      const existingLocation = savedLocations.find(
+        (loc) => loc.location_name.toLowerCase() === locationName.toLowerCase()
+      );
+
+      if (existingLocation) {
+        await supabase
+          .from('saved_locations')
+          .update({
+            use_count: existingLocation.use_count + 1,
+            last_used_at: new Date().toISOString(),
+          })
+          .eq('id', existingLocation.id);
+      } else {
+        await supabase.from('saved_locations').insert({
+          trainer_id: trainerId,
+          location_name: locationName.trim(),
+          use_count: 1,
+          last_used_at: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('Error saving location:', error);
+    }
   };
 
   const isFormValid = clientId && location.trim() && validateTimeFormat(startTimeValue) && validateTimeFormat(endTimeValue);
@@ -343,13 +415,54 @@ export default function NewSessionScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={styles.fieldLabel}>Location</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Enter location"
-            placeholderTextColor="#5b6f92"
-            value={location}
-            onChangeText={setLocation}
-          />
+          <View>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Search or enter location"
+              placeholderTextColor="#5b6f92"
+              value={locationSearchQuery || location}
+              onChangeText={handleLocationSearchChange}
+              onFocus={() => setShowLocationPicker(true)}
+            />
+
+            {showLocationPicker && (
+              <View style={styles.locationPickerContainer}>
+                <ScrollView style={styles.locationPickerList} nestedScrollEnabled>
+                  {getFilteredLocations().length > 0 ? (
+                    getFilteredLocations().map((loc) => (
+                      <TouchableOpacity
+                        key={loc.id}
+                        style={styles.locationPickerOption}
+                        onPress={() => handleLocationSelect(loc.location_name)}
+                      >
+                        <Text style={styles.locationPickerOptionName}>{loc.location_name}</Text>
+                        <Text style={styles.locationPickerOptionCount}>
+                          Used {loc.use_count} {loc.use_count === 1 ? 'time' : 'times'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : locationSearchQuery.trim() ? (
+                    <View style={styles.noLocationsContainer}>
+                      <Text style={styles.noLocationsText}>Press Enter to use "{locationSearchQuery}"</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.noLocationsContainer}>
+                      <Text style={styles.noLocationsText}>No saved locations yet</Text>
+                    </View>
+                  )}
+                </ScrollView>
+                <TouchableOpacity
+                  style={styles.closePickerButton}
+                  onPress={() => {
+                    setShowLocationPicker(false);
+                    setLocationSearchQuery('');
+                  }}
+                >
+                  <Text style={styles.closePickerButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
@@ -859,5 +972,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5b6f92',
     fontWeight: '500',
+  },
+  locationPickerContainer: {
+    marginTop: 8,
+    backgroundColor: '#050814',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    maxHeight: 300,
+  },
+  locationPickerList: {
+    maxHeight: 240,
+  },
+  locationPickerOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  locationPickerOptionName: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  locationPickerOptionCount: {
+    fontSize: 13,
+    color: '#5b6f92',
+    fontWeight: '500',
+  },
+  noLocationsContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noLocationsText: {
+    fontSize: 14,
+    color: '#5b6f92',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  closePickerButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+  },
+  closePickerButtonText: {
+    fontSize: 15,
+    color: '#1a8dff',
+    fontWeight: '600',
   },
 });
