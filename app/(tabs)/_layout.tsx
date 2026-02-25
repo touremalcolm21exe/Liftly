@@ -1,7 +1,25 @@
+import { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Home, Users, Calendar, Dumbbell, Settings } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 
 export default function TabLayout() {
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    getUserRole();
+  }, []);
+
+  const getUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const role = user.user_metadata?.role;
+      setUserRole(role);
+    }
+  };
+
+  const isTrainer = userRole === 'trainer';
+
   return (
     <Tabs
       screenOptions={{
@@ -38,6 +56,7 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => (
             <Users size={size} color={color} strokeWidth={2} />
           ),
+          href: isTrainer ? '/(tabs)/clients' : null,
         }}
       />
       <Tabs.Screen
