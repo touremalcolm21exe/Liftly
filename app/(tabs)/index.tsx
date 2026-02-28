@@ -5,6 +5,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useCallback } from 'react';
+import { useTheme } from '@/lib/ThemeContext';
 
 interface TodaySession {
   id: string;
@@ -22,6 +23,7 @@ interface CurrentSession extends TodaySession {
 }
 
 export default function HomeScreen() {
+  const { colors } = useTheme();
   const [totalSessions, setTotalSessions] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
@@ -115,8 +117,8 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#1a8dff" />
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -125,13 +127,13 @@ export default function HomeScreen() {
   const progressPercentage = totalSessions > 0 ? Math.round(progress * 100) : 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Good morning</Text>
-        <Text style={styles.title}>Today's Schedule</Text>
+        <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good morning</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Today's Schedule</Text>
       </View>
 
-      <View style={styles.heroCard}>
+      <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.heroContent}>
           <View style={styles.progressContainer}>
             <Svg width={140} height={140}>
@@ -139,7 +141,7 @@ export default function HomeScreen() {
                 cx={70}
                 cy={70}
                 r={60}
-                stroke="rgba(255, 255, 255, 0.08)"
+                stroke={colors.border}
                 strokeWidth={8}
                 fill="none"
               />
@@ -147,7 +149,7 @@ export default function HomeScreen() {
                 cx={70}
                 cy={70}
                 r={60}
-                stroke="#1a8dff"
+                stroke={colors.primary}
                 strokeWidth={8}
                 fill="none"
                 strokeDasharray={circumference}
@@ -157,19 +159,19 @@ export default function HomeScreen() {
               />
             </Svg>
             <View style={styles.progressText}>
-              <Text style={styles.progressNumber}>{progressPercentage}%</Text>
-              <Text style={styles.progressLabel}>Complete</Text>
+              <Text style={[styles.progressNumber, { color: colors.text }]}>{progressPercentage}%</Text>
+              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Complete</Text>
             </View>
           </View>
           <View style={styles.heroStats}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{totalSessions}</Text>
-              <Text style={styles.statLabel}>Sessions</Text>
+              <Text style={[styles.statNumber, { color: colors.primary }]}>{totalSessions}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Sessions</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{remainingSessions}</Text>
-              <Text style={styles.statLabel}>Remaining</Text>
+              <Text style={[styles.statNumber, { color: colors.primary }]}>{remainingSessions}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Remaining</Text>
             </View>
           </View>
         </View>
@@ -177,7 +179,7 @@ export default function HomeScreen() {
 
       {currentSession && (
         <View style={styles.currentWorkoutSection}>
-          <Text style={styles.sectionTitle}>Current Workout</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Workout</Text>
           <TouchableOpacity
             style={styles.currentWorkoutCard}
             onPress={() => router.push(`/current-workout?sessionId=${currentSession.id}`)}
@@ -186,19 +188,19 @@ export default function HomeScreen() {
             <View style={styles.currentWorkoutContent}>
               <View style={styles.currentWorkoutHeader}>
                 <View style={styles.currentWorkoutIconContainer}>
-                  <Dumbbell size={28} color="#1a8dff" strokeWidth={2.5} />
+                  <Dumbbell size={28} color={colors.primary} strokeWidth={2.5} />
                 </View>
                 <View style={styles.currentWorkoutInfo}>
-                  <Text style={styles.currentWorkoutClient}>{currentSession.client_name}</Text>
+                  <Text style={[styles.currentWorkoutClient, { color: colors.text }]}>{currentSession.client_name}</Text>
                   <View style={styles.currentWorkoutDetails}>
-                    <Clock size={14} color="#5b6f92" strokeWidth={2} />
-                    <Text style={styles.currentWorkoutTime}>
+                    <Clock size={14} color={colors.textSecondary} strokeWidth={2} />
+                    <Text style={[styles.currentWorkoutTime, { color: colors.textSecondary }]}>
                       {formatTime(currentSession.start_time)} - {formatTime(currentSession.end_time)}
                     </Text>
                   </View>
                 </View>
               </View>
-              <View style={styles.currentWorkoutBadge}>
+              <View style={[styles.currentWorkoutBadge, { backgroundColor: colors.primary }]}>
                 <Text style={styles.currentWorkoutBadgeText}>Track Workout</Text>
               </View>
             </View>
@@ -208,38 +210,38 @@ export default function HomeScreen() {
 
 {todaySessions.filter(session => !(session.confirmed_by_trainer && session.completed_at)).length > 0 && (
         <View style={styles.sessionsSection}>
-          <Text style={styles.sectionTitle}>Today's Sessions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Sessions</Text>
           {todaySessions
             .filter(session => !(session.confirmed_by_trainer && session.completed_at))
             .map((session) => (
               <TouchableOpacity
                 key={session.id}
-                style={styles.sessionCard}
+                style={[styles.sessionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => router.push(`/current-workout?sessionId=${session.id}`)}
                 activeOpacity={0.7}
               >
                 <View style={styles.sessionHeader}>
                   <View style={styles.sessionClientRow}>
-                    <Text style={styles.sessionClient}>
+                    <Text style={[styles.sessionClient, { color: colors.text }]}>
                       {session.client_name}
                     </Text>
                   </View>
                   <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>
+                    <Text style={[styles.statusText, { color: colors.primary }]}>
                       Scheduled
                     </Text>
                   </View>
                 </View>
                 <View style={styles.sessionDetails}>
                   <View style={styles.sessionDetail}>
-                    <Clock size={16} color="#5b6f92" strokeWidth={2} />
-                    <Text style={styles.sessionDetailText}>
+                    <Clock size={16} color={colors.textSecondary} strokeWidth={2} />
+                    <Text style={[styles.sessionDetailText, { color: colors.textSecondary }]}>
                       {formatTime(session.start_time)} - {formatTime(session.end_time)}
                     </Text>
                   </View>
                   <View style={styles.sessionDetail}>
-                    <MapPin size={16} color="#5b6f92" strokeWidth={2} />
-                    <Text style={styles.sessionDetailText}>
+                    <MapPin size={16} color={colors.textSecondary} strokeWidth={2} />
+                    <Text style={[styles.sessionDetailText, { color: colors.textSecondary }]}>
                       {session.location}
                     </Text>
                   </View>
@@ -253,51 +255,51 @@ export default function HomeScreen() {
         <View style={styles.actionRow}>
           {userRole === 'trainer' && (
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
               onPress={() => router.push('/clients')}
               activeOpacity={0.7}
             >
               <View style={styles.actionIcon}>
-                <Users size={26} color="#1a8dff" strokeWidth={2} />
+                <Users size={26} color={colors.primary} strokeWidth={2} />
               </View>
-              <Text style={styles.actionLabel}>Clients</Text>
+              <Text style={[styles.actionLabel, { color: colors.text }]}>Clients</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
             onPress={() => router.push('/schedule')}
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
-              <Calendar size={26} color="#1a8dff" strokeWidth={2} />
+              <Calendar size={26} color={colors.primary} strokeWidth={2} />
             </View>
-            <Text style={styles.actionLabel}>Schedule</Text>
+            <Text style={[styles.actionLabel, { color: colors.text }]}>Schedule</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
             onPress={() => router.push('/workouts')}
             activeOpacity={0.7}
           >
             <View style={styles.actionIcon}>
-              <Dumbbell size={26} color="#1a8dff" strokeWidth={2} />
+              <Dumbbell size={26} color={colors.primary} strokeWidth={2} />
             </View>
-            <Text style={styles.actionLabel}>Workouts</Text>
+            <Text style={[styles.actionLabel, { color: colors.text }]}>Workouts</Text>
           </TouchableOpacity>
         </View>
 
         {userRole === 'trainer' && (
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
               onPress={() => router.push('/stats')}
               activeOpacity={0.7}
             >
               <View style={styles.actionIcon}>
-                <TrendingUp size={26} color="#1a8dff" strokeWidth={2} />
+                <TrendingUp size={26} color={colors.primary} strokeWidth={2} />
               </View>
-              <Text style={styles.actionLabel}>Stats</Text>
+              <Text style={[styles.actionLabel, { color: colors.text }]}>Stats</Text>
             </TouchableOpacity>
           </View>
         )}

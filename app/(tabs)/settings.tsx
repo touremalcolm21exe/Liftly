@@ -20,9 +20,11 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/lib/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { isDarkMode, toggleTheme, colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [userInfo, setUserInfo] = useState<{
@@ -30,7 +32,6 @@ export default function SettingsScreen() {
     role: string;
     name: string;
   } | null>(null);
-  const [darkMode, setDarkMode] = useState(true);
   const [notifications, setNotifications] = useState(true);
 
   useEffect(() => {
@@ -75,91 +76,91 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a8dff" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Profile</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Profile</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.profileInfo}>
-            <View style={styles.avatarContainer}>
-              <User size={32} color="#1a8dff" strokeWidth={2} />
+            <View style={[styles.avatarContainer, { borderColor: colors.primary }]}>
+              <User size={32} color={colors.primary} strokeWidth={2} />
             </View>
             <View style={styles.profileText}>
-              <Text style={styles.profileName}>{userInfo?.name}</Text>
-              <Text style={styles.profileEmail}>{userInfo?.email}</Text>
+              <Text style={[styles.profileName, { color: colors.text }]}>{userInfo?.name}</Text>
+              <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{userInfo?.email}</Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { backgroundColor: colors.surfaceAlt }]}>
             <View style={styles.infoIcon}>
-              <Shield size={18} color="#5b6f92" strokeWidth={2} />
+              <Shield size={18} color={colors.textSecondary} strokeWidth={2} />
             </View>
-            <Text style={styles.infoLabel}>Role</Text>
-            <Text style={styles.infoValue}>{userInfo?.role}</Text>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Role</Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>{userInfo?.role}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <User size={20} color="#5b6f92" strokeWidth={2} />
+            <View style={[styles.menuIconContainer, { backgroundColor: colors.surfaceAlt }]}>
+              <User size={20} color={colors.textSecondary} strokeWidth={2} />
             </View>
-            <Text style={styles.menuText}>Edit Profile</Text>
-            <ChevronRight size={20} color="#5b6f92" strokeWidth={2} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Edit Profile</Text>
+            <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
           <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <Lock size={20} color="#5b6f92" strokeWidth={2} />
+            <View style={[styles.menuIconContainer, { backgroundColor: colors.surfaceAlt }]}>
+              <Lock size={20} color={colors.textSecondary} strokeWidth={2} />
             </View>
-            <Text style={styles.menuText}>Change Password</Text>
-            <ChevronRight size={20} color="#5b6f92" strokeWidth={2} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Change Password</Text>
+            <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>App</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>App</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <Moon size={20} color="#5b6f92" strokeWidth={2} />
+            <View style={[styles.menuIconContainer, { backgroundColor: colors.surfaceAlt }]}>
+              <Moon size={20} color={colors.textSecondary} strokeWidth={2} />
             </View>
-            <Text style={styles.menuText}>Dark Mode</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Dark Mode</Text>
             <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{ false: '#2d3748', true: '#1a8dff' }}
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#cbd5e0', true: colors.primary }}
               thumbColor="#ffffff"
             />
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
           <View style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <Bell size={20} color="#5b6f92" strokeWidth={2} />
+            <View style={[styles.menuIconContainer, { backgroundColor: colors.surfaceAlt }]}>
+              <Bell size={20} color={colors.textSecondary} strokeWidth={2} />
             </View>
-            <Text style={styles.menuText}>Notifications</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Notifications</Text>
             <Switch
               value={notifications}
               onValueChange={setNotifications}
-              trackColor={{ false: '#2d3748', true: '#1a8dff' }}
+              trackColor={{ false: '#cbd5e0', true: colors.primary }}
               thumbColor="#ffffff"
             />
           </View>
@@ -167,18 +168,18 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
             disabled={loggingOut}
           >
             {loggingOut ? (
-              <ActivityIndicator size="small" color="#ef4444" />
+              <ActivityIndicator size="small" color={colors.error} />
             ) : (
               <>
-                <LogOut size={20} color="#ef4444" strokeWidth={2} />
-                <Text style={styles.logoutText}>Log Out</Text>
+                <LogOut size={20} color={colors.error} strokeWidth={2} />
+                <Text style={[styles.logoutText, { color: colors.error }]}>Log Out</Text>
               </>
             )}
           </TouchableOpacity>
@@ -186,7 +187,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Liftly v1.0.0</Text>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>Liftly v1.0.0</Text>
       </View>
     </ScrollView>
   );

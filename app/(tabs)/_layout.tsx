@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Home, Users, Calendar, Dumbbell, Settings } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/lib/ThemeContext';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,15 +27,15 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0b0f1e',
-          borderTopColor: 'rgba(255, 255, 255, 0.08)',
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: 80,
           paddingBottom: 20,
           paddingTop: 12,
         },
-        tabBarActiveTintColor: '#1a8dff',
-        tabBarInactiveTintColor: '#5b6f92',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { supabase } from '@/lib/supabase';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { ThemeProvider } from '@/lib/ThemeContext';
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -50,14 +51,14 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style="light" />
-    </>
+      <StatusBar style="auto" />
+    </ThemeProvider>
   );
 }
 
