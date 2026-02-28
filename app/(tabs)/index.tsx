@@ -175,6 +175,37 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {currentSession && (
+        <View style={styles.currentWorkoutSection}>
+          <Text style={styles.sectionTitle}>Current Workout</Text>
+          <TouchableOpacity
+            style={styles.currentWorkoutCard}
+            onPress={() => router.push(`/current-workout?sessionId=${currentSession.id}`)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.currentWorkoutContent}>
+              <View style={styles.currentWorkoutHeader}>
+                <View style={styles.currentWorkoutIconContainer}>
+                  <Dumbbell size={28} color="#1a8dff" strokeWidth={2.5} />
+                </View>
+                <View style={styles.currentWorkoutInfo}>
+                  <Text style={styles.currentWorkoutClient}>{currentSession.client_name}</Text>
+                  <View style={styles.currentWorkoutDetails}>
+                    <Clock size={14} color="#5b6f92" strokeWidth={2} />
+                    <Text style={styles.currentWorkoutTime}>
+                      {formatTime(currentSession.start_time)} - {formatTime(currentSession.end_time)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.currentWorkoutBadge}>
+                <Text style={styles.currentWorkoutBadgeText}>Track Workout</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
 {todaySessions.filter(session => !(session.confirmed_by_trainer && session.completed_at)).length > 0 && (
         <View style={styles.sessionsSection}>
           <Text style={styles.sectionTitle}>Today's Sessions</Text>
@@ -215,37 +246,6 @@ export default function HomeScreen() {
                 </View>
               </TouchableOpacity>
             ))}
-        </View>
-      )}
-
-      {currentSession && (
-        <View style={styles.currentWorkoutSection}>
-          <Text style={styles.sectionTitle}>Current Workout</Text>
-          <TouchableOpacity
-            style={styles.currentWorkoutCard}
-            onPress={() => router.push(`/current-workout?sessionId=${currentSession.id}`)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.currentWorkoutContent}>
-              <View style={styles.currentWorkoutHeader}>
-                <View style={styles.currentWorkoutIconContainer}>
-                  <Dumbbell size={28} color="#1a8dff" strokeWidth={2.5} />
-                </View>
-                <View style={styles.currentWorkoutInfo}>
-                  <Text style={styles.currentWorkoutClient}>{currentSession.client_name}</Text>
-                  <View style={styles.currentWorkoutDetails}>
-                    <Clock size={14} color="#5b6f92" strokeWidth={2} />
-                    <Text style={styles.currentWorkoutTime}>
-                      {formatTime(currentSession.start_time)} - {formatTime(currentSession.end_time)}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.currentWorkoutBadge}>
-                <Text style={styles.currentWorkoutBadgeText}>Track Workout</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -398,6 +398,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   currentWorkoutSection: {
+    marginTop: 32,
     marginBottom: 32,
   },
   currentWorkoutCard: {
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   sessionsSection: {
-    marginTop: 32,
+    marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 20,
