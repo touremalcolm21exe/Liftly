@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Dumbbell, Users } from 'lucide-react-native';
+import { Dumbbell } from 'lucide-react-native';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -10,50 +10,27 @@ export default function WelcomeScreen() {
       <View style={styles.header}>
         <Dumbbell size={64} color="#1a8dff" strokeWidth={2} />
         <Text style={styles.title}>Liftly</Text>
-        <Text style={styles.subtitle}>Your Fitness Journey Starts Here</Text>
+        <Text style={styles.subtitle}>Professional Trainer Management</Text>
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.prompt}>Get started by choosing your role</Text>
+        <Text style={styles.prompt}>Get started with your trainer account</Text>
 
         <TouchableOpacity
-          style={styles.roleButton}
+          style={styles.primaryButton}
           onPress={() => router.push('/(auth)/signup-trainer')}
           activeOpacity={0.7}
         >
-          <View style={styles.iconContainer}>
-            <Dumbbell size={28} color="#1a8dff" strokeWidth={2} />
-          </View>
-          <View style={styles.buttonTextContainer}>
-            <Text style={styles.roleButtonTitle}>Sign up as Trainer</Text>
-            <Text style={styles.roleButtonSubtitle}>
-              Manage clients and sessions
-            </Text>
-          </View>
+          <Text style={styles.primaryButtonText}>Sign Up</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.roleButton}
-          onPress={() => router.push('/(auth)/signup-client')}
+          style={styles.secondaryButton}
+          onPress={() => router.push('/(auth)/login')}
           activeOpacity={0.7}
         >
-          <View style={styles.iconContainer}>
-            <Users size={28} color="#1a8dff" strokeWidth={2} />
-          </View>
-          <View style={styles.buttonTextContainer}>
-            <Text style={styles.roleButtonTitle}>Sign up as Client</Text>
-            <Text style={styles.roleButtonSubtitle}>
-              Track your fitness journey
-            </Text>
-          </View>
+          <Text style={styles.secondaryButtonText}>Log In</Text>
         </TouchableOpacity>
-
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.loginLink}>Log in</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </View>
   );
@@ -92,56 +69,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
     letterSpacing: -0.3,
   },
-  roleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0b0f1e',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 24,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(26, 141, 255, 0.1)',
+  primaryButton: {
+    backgroundColor: '#1a8dff',
+    padding: 20,
     borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
+    marginBottom: 16,
   },
-  buttonTextContainer: {
-    flex: 1,
-  },
-  roleButtonTitle: {
+  primaryButtonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 4,
     letterSpacing: -0.3,
   },
-  roleButtonSubtitle: {
-    fontSize: 14,
-    color: '#5b6f92',
-    fontWeight: '600',
-  },
-  loginContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  secondaryButton: {
+    backgroundColor: '#0b0f1e',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 32,
   },
-  loginText: {
-    fontSize: 16,
-    color: '#5b6f92',
-  },
-  loginLink: {
-    fontSize: 16,
-    fontWeight: '600',
+  secondaryButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1a8dff',
+    letterSpacing: -0.3,
   },
 });

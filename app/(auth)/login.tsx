@@ -45,15 +45,7 @@ export default function LoginScreen() {
       }
 
       if (data.user) {
-        const role = data.user.user_metadata?.role;
-
-        if (role === 'trainer') {
-          router.replace('/(tabs)');
-        } else if (role === 'client') {
-          router.replace('/(tabs)');
-        } else {
-          router.replace('/(tabs)');
-        }
+        router.replace('/(tabs)');
       }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -134,13 +126,6 @@ export default function LoginScreen() {
               <Text style={styles.loginButtonText}>Log In</Text>
             )}
           </TouchableOpacity>
-
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.replace('/(auth)/welcome')}>
-              <Text style={styles.signupLink}>Sign up</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -233,20 +218,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.2,
-  },
-  signupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  signupText: {
-    fontSize: 16,
-    color: '#5b6f92',
-  },
-  signupLink: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a8dff',
   },
 });
