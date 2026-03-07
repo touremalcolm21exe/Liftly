@@ -92,6 +92,8 @@ export default function ClientProfileScreen() {
   const [loadingPRs, setLoadingPRs] = useState(false);
   const [showPRModal, setShowPRModal] = useState(false);
   const [deletePRConfirm, setDeletePRConfirm] = useState<string | null>(null);
+  const [deleteClientConfirm, setDeleteClientConfirm] = useState(false);
+  const [deletingClient, setDeletingClient] = useState(false);
 
   useEffect(() => {
     loadClient();
@@ -295,6 +297,27 @@ export default function ClientProfileScreen() {
     }
   };
 
+  const handleDeleteClient = async () => {
+    if (!client) return;
+
+    setDeletingClient(true);
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', client.id);
+
+      if (!error) {
+        setDeleteClientConfirm(false);
+        router.push('/(tabs)/clients');
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+    } finally {
+      setDeletingClient(false);
+    }
+  };
+
   const toggleWorkoutExpansion = (workoutId: string) => {
     const newExpanded = new Set(expandedWorkouts);
     if (newExpanded.has(workoutId)) {
@@ -370,13 +393,18 @@ export default function ClientProfileScreen() {
           <ChevronLeft size={24} color="#ffffff" strokeWidth={2} />
         </TouchableOpacity>
         <Text style={styles.title}>Client Profile</Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving}>
-          {saving ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Save size={24} color="#ffffff" strokeWidth={2} />
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={() => setDeleteClientConfirm(true)} style={styles.deleteButton} disabled={saving || deletingClient}>
+            <Trash2 size={24} color="#ff4444" strokeWidth={2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving || deletingClient}>
+            {saving ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Save size={24} color="#ffffff" strokeWidth={2} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -993,6 +1021,42 @@ export default function ClientProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={deleteClientConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeleteClientConfirm(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <Text style={styles.deleteModalTitle}>Remove Client?</Text>
+            <Text style={styles.deleteModalText}>
+              Are you sure you want to remove this client? This will delete all associated data including workouts, progress measurements, and notes. This action cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancel}
+                onPress={() => setDeleteClientConfirm(false)}
+                disabled={deletingClient}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteModalConfirm, deletingClient && styles.deleteModalConfirmDisabled]}
+                onPress={handleDeleteClient}
+                disabled={deletingClient}
+              >
+                {deletingClient ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.deleteModalConfirmText}>Remove</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1027,6 +1091,16 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: -0.3,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
     width: 40,
@@ -1291,6 +1365,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '700',
+  },
+  deleteModalConfirmDisabled: {
+    opacity: 0.6,
   },
   progressHeader: {
     flexDirection: 'row',
