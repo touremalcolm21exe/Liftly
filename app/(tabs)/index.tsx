@@ -30,6 +30,7 @@ export default function HomeScreen() {
   const [currentSession, setCurrentSession] = useState<CurrentSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadTodaySessions();
@@ -38,8 +39,62 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadTodaySessions();
+
+      // Set up interval to check for current session every 30 seconds
+      const interval = setInterval(() => {
+        loadTodaySessions();
+      }, 30000);
+
+      setRefreshInterval(interval);
+
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
     }, [])
   );
+
+  useEffect(() => {
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [refreshInterval]);
+
+  const getCurrentTime = (): string => {
+    const now = new Date();
+    return now.toTimeString().slice(0, 5);
+  };
+
+  const findCurrentSession = (sessions: TodaySession[]): CurrentSession | null => {
+    const currentTime = getCurrentTime();
+
+    const scheduledSessions = sessions.filter(s =>
+      s.status === 'scheduled' && !(s.confirmed_by_trainer && s.completed_at)
+    );
+
+    // Find session that is currently in progress (start <= now <= end)
+    const inProgressSession = scheduledSessions.find(s => {
+      return s.start_time <= currentTime && s.end_time > currentTime;
+    });
+
+    if (inProgressSession) {
+      console.log(`Current session in progress: ${inProgressSession.id} (${inProgressSession.client_name})`);
+      return inProgressSession as CurrentSession;
+    }
+
+    // If no in-progress session, find the next upcoming session
+    const nextSession = scheduledSessions.find(s => s.start_time > currentTime);
+
+    if (nextSession) {
+      console.log(`Next upcoming session: ${nextSession.id} (${nextSession.client_name})`);
+      return nextSession as CurrentSession;
+    }
+
+    return null;
+  };
 
   const loadTodaySessions = async () => {
     try {
@@ -80,21 +135,9 @@ export default function HomeScreen() {
         setTotalSessions(sessions.length);
         setCompletedSessions(sessions.filter(s => s.status === 'completed').length);
 
-        // Find current session (in progress or next scheduled, but not completed)
-        const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5);
-
-        const scheduledSessions = sessions.filter(s =>
-          s.status === 'scheduled' && !(s.confirmed_by_trainer && s.completed_at)
-        );
-
-        const inProgressSession = scheduledSessions.find(s => {
-          return s.start_time <= currentTime && s.end_time >= currentTime;
-        });
-
-        const nextSession = scheduledSessions.find(s => s.start_time > currentTime);
-
-        setCurrentSession(inProgressSession || nextSession || null);
+        // Find current session
+        const current = findCurrentSession(sessions);
+        setCurrentSession(current);
       }
     } catch (error) {
       console.error('Error loading sessions:', error);
@@ -208,11 +251,11 @@ export default function HomeScreen() {
         </View>
       )}
 
-{todaySessions.filter(session => !(session.confirmed_by_trainer && session.completed_at)).length > 0 && (
+{todaySessions.filter(session => !(session.confirmed_by_trainer && session.completed_at) && session.id !== currentSession?.id).length > 0 && (
         <View style={styles.sessionsSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Sessions</Text>
           {todaySessions
-            .filter(session => !(session.confirmed_by_trainer && session.completed_at))
+            .filter(session => !(session.confirmed_by_trainer && session.completed_at) && session.id !== currentSession?.id)
             .map((session) => (
               <TouchableOpacity
                 key={session.id}
