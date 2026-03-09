@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Search, User, ChevronRight, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import AddClientModal from '@/components/AddClientModal';
@@ -26,6 +26,10 @@ export default function ClientsScreen() {
   useEffect(() => {
     loadClients();
   }, []);
+
+  useFocusEffect(() => {
+    loadClients();
+  });
 
   useEffect(() => {
     filterClients();

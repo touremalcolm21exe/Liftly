@@ -302,18 +302,22 @@ export default function ClientProfileScreen() {
 
     setDeletingClient(true);
     try {
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('clients')
         .delete()
         .eq('id', client.id);
 
-      if (!error) {
-        setDeleteClientConfirm(false);
-        router.push('/(tabs)/clients');
+      if (error) {
+        console.error('Error deleting client:', error);
+        setDeletingClient(false);
+        return;
       }
+
+      console.log('Client deleted successfully:', client.id);
+      setDeleteClientConfirm(false);
+      router.push('/(tabs)/clients');
     } catch (error) {
       console.error('Error deleting client:', error);
-    } finally {
       setDeletingClient(false);
     }
   };
