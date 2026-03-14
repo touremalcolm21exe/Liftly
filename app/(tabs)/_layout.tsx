@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Users, Calendar, Dumbbell, Settings } from 'lucide-react-native';
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Hop as Home, Users, Calendar, Dumbbell, Settings } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,8 +33,8 @@ export default function TabLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 80,
-          paddingBottom: 20,
+          height: Platform.OS === 'ios' ? 80 + insets.bottom : 80,
+          paddingBottom: Math.max(insets.bottom, 16),
           paddingTop: 12,
         },
         tabBarActiveTintColor: colors.primary,
