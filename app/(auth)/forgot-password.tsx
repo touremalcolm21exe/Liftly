@@ -11,19 +11,25 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Mail } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields');
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address');
       return;
     }
 
@@ -31,28 +37,47 @@ export default function LoginScreen() {
     setError('');
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (signInError) {
-        // Provide helpful error messages for common issues
-        if (signInError.message.includes('Email not confirmed')) {
-          throw new Error('Your email is not confirmed. Please contact support or try signing up again.');
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: 'your-app://reset-password',
         }
-        throw signInError;
+      );
+
+      if (resetError) {
+        throw resetError;
       }
 
-      if (data.user) {
-        router.replace('/(tabs)');
-      }
+      setSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.successContainer}>
+          <View style={styles.iconContainer}>
+            <Mail size={48} color="#10b981" strokeWidth={2} />
+          </View>
+          <Text style={styles.successTitle}>Check your email</Text>
+          <Text style={styles.successMessage}>
+            We've sent a password reset link to {email}. Please check your inbox
+            and follow the instructions to reset your password.
+          </Text>
+          <TouchableOpacity
+            style={styles.backToLoginButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backToLoginButtonText}>Back to Login</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -71,8 +96,11 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your Liftly account</Text>
+          <Text style={styles.title}>Forgot Password?</Text>
+          <Text style={styles.subtitle}>
+            Enter your email address and we'll send you a link to reset your
+            password
+          </Text>
         </View>
 
         <View style={styles.form}>
@@ -99,47 +127,24 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                setError('');
-              }}
-              secureTextEntry
-              autoComplete="password"
-              editable={!loading}
-            />
-          </View>
-
           <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={() => router.push('/(auth)/forgot-password')}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-            onPress={handleLogin}
+            style={[styles.resetButton, loading && styles.resetButtonDisabled]}
+            onPress={handleResetPassword}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.loginButtonText}>Log In</Text>
+              <Text style={styles.resetButtonText}>Send Reset Link</Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.signupPrompt}>
-            <Text style={styles.signupPromptText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/signup-client')}>
-              <Text style={styles.signupLink}>Create account</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -176,6 +181,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#5b6f92',
     fontWeight: '600',
+    lineHeight: 24,
   },
   form: {
     backgroundColor: '#0b0f1e',
@@ -216,46 +222,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
   },
-  loginButton: {
+  resetButton: {
     backgroundColor: '#1a8dff',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
   },
-  loginButtonDisabled: {
+  resetButtonDisabled: {
     backgroundColor: '#0b3d6b',
     opacity: 0.5,
   },
-  loginButtonText: {
+  resetButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 8,
+  cancelButton: {
+    padding: 18,
+    alignItems: 'center',
+    marginTop: 12,
   },
-  forgotPasswordText: {
-    color: '#1a8dff',
-    fontSize: 14,
+  cancelButtonText: {
+    color: '#5b6f92',
+    fontSize: 16,
     fontWeight: '600',
+    letterSpacing: -0.2,
   },
-  signupPrompt: {
-    flexDirection: 'row',
+  successContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    padding: 24,
   },
-  signupPromptText: {
-    color: '#5b6f92',
-    fontSize: 14,
-    fontWeight: '600',
+  iconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  signupLink: {
-    color: '#1a8dff',
-    fontSize: 14,
+  successTitle: {
+    fontSize: 28,
     fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#5b6f92',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '600',
+    marginBottom: 32,
+  },
+  backToLoginButton: {
+    backgroundColor: '#1a8dff',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  backToLoginButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });
