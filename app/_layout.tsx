@@ -13,13 +13,41 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        // Verify user has valid role (client or trainer)
+        const [clientCheck, trainerCheck] = await Promise.all([
+          supabase.from('clients').select('id').eq('user_id', session.user.id).maybeSingle(),
+          supabase.from('trainers').select('id').eq('user_id', session.user.id).maybeSingle()
+        ]);
+
+        const hasValidRole = !!(clientCheck.data || trainerCheck.data);
+        if (!hasValidRole) {
+          await supabase.auth.signOut();
+          setIsAuthenticated(false);
+          return;
+        }
+      }
       setIsAuthenticated(!!session);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         (async () => {
+          if (session?.user) {
+            // Verify user has valid role (client or trainer)
+            const [clientCheck, trainerCheck] = await Promise.all([
+              supabase.from('clients').select('id').eq('user_id', session.user.id).maybeSingle(),
+              supabase.from('trainers').select('id').eq('user_id', session.user.id).maybeSingle()
+            ]);
+
+            const hasValidRole = !!(clientCheck.data || trainerCheck.data);
+            if (!hasValidRole) {
+              await supabase.auth.signOut();
+              setIsAuthenticated(false);
+              return;
+            }
+          }
           setIsAuthenticated(!!session);
         })();
       }
