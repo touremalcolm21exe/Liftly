@@ -170,6 +170,30 @@ export default function ClientLoginScreen() {
               <Text style={styles.trainerLink}>Trainer login</Text>
             </TouchableOpacity>
           </View>
+
+          {__DEV__ && (
+            <View style={styles.demoBox}>
+              <Text style={styles.demoTitle}>Demo credentials (dev only)</Text>
+              <Text style={styles.demoHint}>Tap a row to auto-fill</Text>
+              <TouchableOpacity
+                style={styles.demoRow}
+                onPress={() => {
+                  setEmail('client@testapp.com');
+                  setPassword('Test1234!');
+                  setError('');
+                }}
+                disabled={loading}
+              >
+                <View style={styles.demoBadgeClient}>
+                  <Text style={styles.demoBadgeClientText}>CLIENT</Text>
+                </View>
+                <View style={styles.demoCol}>
+                  <Text style={styles.demoEmail}>client@testapp.com</Text>
+                  <Text style={styles.demoPassword}>Test1234!</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -331,5 +355,64 @@ const styles = StyleSheet.create({
     color: '#1a8dff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  demoBox: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+    borderStyle: 'dashed',
+  },
+  demoTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+    letterSpacing: -0.1,
+  },
+  demoHint: {
+    color: '#5b6f92',
+    fontSize: 12,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  demoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#050814',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 8,
+  },
+  demoCol: {
+    flex: 1,
+  },
+  demoEmail: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  demoPassword: {
+    color: '#5b6f92',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  demoBadgeClient: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    marginRight: 12,
+  },
+  demoBadgeClientText: {
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

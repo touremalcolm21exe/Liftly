@@ -170,6 +170,47 @@ export default function TrainerLoginScreen() {
               <Text style={styles.clientLink}>Client login</Text>
             </TouchableOpacity>
           </View>
+
+          {__DEV__ && (
+            <View style={styles.demoBox}>
+              <Text style={styles.demoTitle}>Demo credentials (dev only)</Text>
+              <Text style={styles.demoHint}>Tap a row to auto-fill</Text>
+              <TouchableOpacity
+                style={styles.demoRow}
+                onPress={() => {
+                  setEmail('trainer.free@testapp.com');
+                  setPassword('Test1234!');
+                  setError('');
+                }}
+                disabled={loading}
+              >
+                <View style={styles.demoBadgeFree}>
+                  <Text style={styles.demoBadgeFreeText}>FREE</Text>
+                </View>
+                <View style={styles.demoCol}>
+                  <Text style={styles.demoEmail}>trainer.free@testapp.com</Text>
+                  <Text style={styles.demoPassword}>Test1234!</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.demoRow}
+                onPress={() => {
+                  setEmail('trainer.pro@testapp.com');
+                  setPassword('Test1234!');
+                  setError('');
+                }}
+                disabled={loading}
+              >
+                <View style={styles.demoBadgePro}>
+                  <Text style={styles.demoBadgeProText}>PRO</Text>
+                </View>
+                <View style={styles.demoCol}>
+                  <Text style={styles.demoEmail}>trainer.pro@testapp.com</Text>
+                  <Text style={styles.demoPassword}>Test1234!</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -331,5 +372,77 @@ const styles = StyleSheet.create({
     color: '#10b981',
     fontSize: 14,
     fontWeight: '700',
+  },
+  demoBox: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(26, 141, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(26, 141, 255, 0.2)',
+    borderStyle: 'dashed',
+  },
+  demoTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+    letterSpacing: -0.1,
+  },
+  demoHint: {
+    color: '#5b6f92',
+    fontSize: 12,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  demoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#050814',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 8,
+  },
+  demoCol: {
+    flex: 1,
+  },
+  demoEmail: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  demoPassword: {
+    color: '#5b6f92',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  demoBadgeFree: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(91, 111, 146, 0.2)',
+    marginRight: 12,
+  },
+  demoBadgeFreeText: {
+    color: '#9aacc9',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  demoBadgePro: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(26, 141, 255, 0.2)',
+    marginRight: 12,
+  },
+  demoBadgeProText: {
+    color: '#1a8dff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
